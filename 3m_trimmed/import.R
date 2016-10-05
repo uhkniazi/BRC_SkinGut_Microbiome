@@ -112,36 +112,40 @@ temp = sapply(cn, function(x){
 ## simpson = logit = normal
 
 library(lattice)
-dfData = data.frame(Shannon=dfImport$shannonmean, Frozen=factor(ifelse(dfImport$frozen1yes == 1, 'Yes', 'No')), Male=dfImport$male,
-                    Caesarean=dfImport$Caesarean.born, Siblings=dfImport$anysibs, Pets=factor(dfImport$catordog3m),
+dfData = data.frame(Shannon=dfImport$shannonmean, Frozen=factor(ifelse(dfImport$frozen1yes == 1, 'Frozen.Yes', 'Frozen.No')), 
+                    Male=factor(ifelse(dfImport$male == 'Yes', 'Male', 'Female')),
+                    Caesarean=factor(ifelse(dfImport$Caesarean.born == 'Yes', 'Caesarean.Yes', 'Caesarean.No')),
+                    Siblings=factor(ifelse(dfImport$anysibs == 'Yes', 'Siblings.Yes', 'Siblings.No')),
+                    Pets=factor(ifelse(dfImport$catordog3m == 1, 'Pet.Yes', 'Pet.No')),
                     Eczema3m=dfImport$ecz3m, Eczema3m.sev=factor(dfImport$eczsev3m),
-                    Eczema12m=dfImport$exam12mecz,
+                    Eczema12m=factor(ifelse(dfImport$exam12mecz == 'Yes', 'Eczema12m.Yes', 'Eczema12m.No')),
                     Eczema12m.sev=dfImport$exam12meczsev,
-                    FoodAllergy=dfImport$foodallergy,
-                    AntiBiotics = factor(dfImport$anyrouteantbxlastmonth),
-                    ige009.3m = dfImport$ige009at3m,
-                    ige035.12m = dfImport$ige035at12m,
-                    anyfoodsensitised_cv12m = dfImport$anyfoodsensitised_cv12m,
-                    ige035.36m = dfImport$ige035at36m
+                    FoodAllergy=factor(ifelse(dfImport$foodallergy == 'Yes', 'FoodAllergy.Yes', 'FoodAllergy.No')),
+                    AntiBiotics = factor(ifelse(dfImport$anyrouteantbxlastmonth == 1, 'Antibiotics.Yes', 'Antibiotics.No')),
+                    ige009.3m = factor(ifelse(dfImport$ige009at3m == 'Yes', 'ige009at3m.Yes', 'ige009at3m.No')),
+                    ige035.12m = factor(ifelse(dfImport$ige035at12m == 'Yes', 'ige035at12m.Yes', 'ige035at12m.No')),
+                    anyfoodsensitised_cv12m = factor(ifelse(dfImport$anyfoodsensitised_cv12m == 'Yes', 'anyfoodsensitised_cv12m.Yes',
+                                                            'anyfoodsensitised_cv12m.No')),
+                    ige035.36m = factor(ifelse(dfImport$ige035at36m == 'Yes', 'ige035at36m.Yes', 'ige035at36m.No'))
                     )
 
 densityplot(~ Shannon | Eczema3m.sev, data=dfData, groups=Eczema3m, auto.key=T)
 
 ## how does the density compare with eczema at 3 months and covariates
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=Frozen, main='Eczema at 3 months given Frozen')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=Male, main='Eczema at 3 months given Male')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=Caesarean, main='Eczema at 3 months given Caesarean')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=Siblings, main='Eczema at 3 months given Siblings')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=Pets, main='Eczema at 3 months given Pets')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=Eczema3m.sev, main='Eczema at 3 months given Eczema 3m Severity')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=Eczema12m, main='Eczema at 3 months given Eczema 12m')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=FoodAllergy, main='Eczema at 3 months given FoodAllergy')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=AntiBiotics, main='Eczema at 3 months given AntiBiotics')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=ige009.3m, main='Eczema at 3 months given ige009.3m')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=ige035.12m, main='Eczema at 3 months given ige035.12m')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=anyfoodsensitised_cv12m, 
+densityplot(~ Shannon | Frozen, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given Frozen')
+densityplot(~ Shannon | Male, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given Male')
+densityplot(~ Shannon | Caesarean, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given Caesarean')
+densityplot(~ Shannon | Siblings, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given Siblings')
+densityplot(~ Shannon | Pets, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given Pets')
+densityplot(~ Shannon | Eczema3m.sev, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given Eczema 3m Severity')
+densityplot(~ Shannon | Eczema12m, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given Eczema 12m')
+densityplot(~ Shannon | FoodAllergy, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given FoodAllergy')
+densityplot(~ Shannon | AntiBiotics, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given AntiBiotics')
+densityplot(~ Shannon | ige009.3m, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given ige009.3m')
+densityplot(~ Shannon | ige035.12m, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given ige035.12m')
+densityplot(~ Shannon | anyfoodsensitised_cv12m, data=dfData, auto.key=T, groups=Eczema3m, 
             main='Eczema at 3 months given anyfoodsensitised_cv12m')
-densityplot(~ Shannon | Eczema3m, data=dfData, auto.key=T, groups=ige035.36m, main='Eczema at 3 months given ige035.36m')
+densityplot(~ Shannon | ige035.36m, data=dfData, auto.key=T, groups=Eczema3m, main='Eczema at 3 months given ige035.36m')
 
 ## organism abundance scores
 cn = colnames(dfImport)
@@ -190,23 +194,28 @@ fSubGroups[i] = 'High'
 fSubGroups = factor(fSubGroups, levels=c('Low', 'High'))
 
 dfData$fSubGroups = fSubGroups
+dfData$Eczema3m.Sub = factor(paste(dfData$Eczema3m, fSubGroups, sep='.'))
 
-densityplot(~ Shannon | Eczema3m, data=dfData, groups=fSubGroups, auto.key=T)
+densityplot(~ Shannon, data=dfData, groups=Eczema3m.Sub, auto.key=list(columns=4), 
+            main='Distribution of Diversity given Eczema3m (No/Yes) and Group (High/Low)')
+dfData.bk = dfData
+dfData = subset(dfData, dfData$Eczema3m.Sub != 'Yes.High')
 
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=Frozen, main='Eczema at 3 months given Frozen')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=Male, main='Eczema at 3 months given Male')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=Caesarean, main='Eczema at 3 months given Caesarean')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=Siblings, main='Eczema at 3 months given Siblings')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=Pets, main='Eczema at 3 months given Pets')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=Eczema3m.sev, main='Eczema at 3 months given Eczema 3m Severity')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=Eczema12m, main='Eczema at 3 months given Eczema 12m')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=FoodAllergy, main='Eczema at 3 months given FoodAllergy')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=AntiBiotics, main='Eczema at 3 months given AntiBiotics')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=ige009.3m, main='Eczema at 3 months given ige009.3m')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=ige035.12m, main='Eczema at 3 months given ige035.12m')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=anyfoodsensitised_cv12m, 
+## how does the density compare with eczema at 3 months and covariates
+densityplot(~ Shannon | Frozen, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given Frozen')
+densityplot(~ Shannon | Male, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given Male')
+densityplot(~ Shannon | Caesarean, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given Caesarean')
+densityplot(~ Shannon | Siblings, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given Siblings')
+densityplot(~ Shannon | Pets, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given Pets')
+densityplot(~ Shannon | Eczema3m.sev, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given Eczema 3m Severity')
+densityplot(~ Shannon | Eczema12m, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given Eczema 12m')
+densityplot(~ Shannon | FoodAllergy, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given FoodAllergy')
+densityplot(~ Shannon | AntiBiotics, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given AntiBiotics')
+densityplot(~ Shannon | ige009.3m, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given ige009.3m')
+densityplot(~ Shannon | ige035.12m, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given ige035.12m')
+densityplot(~ Shannon | anyfoodsensitised_cv12m, data=dfData, auto.key=T, groups=Eczema3m.Sub, 
             main='Eczema at 3 months given anyfoodsensitised_cv12m')
-densityplot(~ Shannon | Eczema3m+fSubGroups, data=dfData, auto.key=T, groups=ige035.36m, main='Eczema at 3 months given ige035.36m')
+densityplot(~ Shannon | ige035.36m, data=dfData, auto.key=T, groups=Eczema3m.Sub, main='Eczema at 3 months given ige035.36m')
 
 ## organism abundance scores
 cn = colnames(dfImport)
@@ -219,13 +228,21 @@ sapply(cn, function(x){
   print(p)
 })
 
+dfData = dfData.bk
 dfStack = dfImport[,cn]
 str(dfStack)
 df = stack(dfStack)
 str(df)
 df$Ezcema = dfData$Eczema3m
-df$Group = dfData$fSubGroups
-densityplot( ~ logit(values) | ind, data=df, groups=Group, type='n', auto.key=T)
+df$Group = dfData$Eczema3m.Sub
+df = subset(df, df$Group != 'Yes.High')
+densityplot( ~ logit(values) | ind, data=df, groups=Group, type='n', auto.key=list(columns=4), xlab='logit Diversity')
+
+## pairs plots
+col.p = c('black', 'red')
+col = col.p[as.numeric(dfData$fSubGroups)]
+pairs(dfDiversity, pch=20, col=col)
+
 
 
 ## calculate prior and posterior probabilities
