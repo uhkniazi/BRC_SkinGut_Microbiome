@@ -160,6 +160,26 @@ sapply(cn, function(x){
   print(p)
 })
 
+dfStack = dfImport[,cn]
+str(dfStack)
+df = stack(dfStack)
+str(df)
+df$Eczema = dfData$Eczema3m
+densityplot( ~ logit(values) | ind, data=df, groups=Eczema, type='n', auto.key=T)
+
+# xyplot(ifelse(Eczema3m == "Yes", 1, 0) ~ Shannon | some, data = dfData,
+#         groups = FoodAllergy, type = c("g", "smooth"),
+#         auto.key = list(space = "top", points = FALSE,
+#                         lines = TRUE, columns = 4),
+#         ylab = "Eczema at 3 months", xlab = "Shannon Diversity")
+
+xyplot(ifelse(Eczema3m == "Yes", 1, 0) ~ Shannon, data = dfData,
+       type = c("p"), groups=FoodAllergy,
+       auto.key = T,
+       ylab = "Eczema at 3 months", xlab = "Shannon Diversity")
+
+
+
 
 # split the Samples into 2 groups based on the last quantile of Shannon or Chao diversity distribution
 # use the shannon index
@@ -198,6 +218,14 @@ sapply(cn, function(x){
   p = xyplot(dfData$Shannon ~ org | dfData$Eczema3m, groups = dfData$fSubGroups, main=x, auto.key=T)
   print(p)
 })
+
+dfStack = dfImport[,cn]
+str(dfStack)
+df = stack(dfStack)
+str(df)
+df$Ezcema = dfData$Eczema3m
+df$Group = dfData$fSubGroups
+densityplot( ~ logit(values) | ind, data=df, groups=Group, type='n', auto.key=T)
 
 
 ## calculate prior and posterior probabilities
