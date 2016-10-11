@@ -29,11 +29,6 @@ dfImport = read.csv(file.choose(), header=T)
 str(dfImport)
 head(dfImport)
 
-# data frame for diversity indices
-dfDiversity = data.frame(cbind(dfImport$shannonmean, dfImport$simpsonmean, dfImport$chaomean))#, dfImport$pdwholetreemean, dfImport$obsotumean))
-colnames(dfDiversity) = c('Shannon', 'Simpson', 'Chao')#, 'TreeMean', 'ObsotuMean')
-str(dfDiversity)
-
 ## original variables i.e. 
 ## shannon = normal
 ## chao = gamma
@@ -67,6 +62,7 @@ dfData = data.frame(Shannon=dfImport$shannonmean, Frozen=factor(ifelse(dfImport$
                     ige035.36m = factor(ifelse(dfImport$ige035at36m == 'Yes', 'ige035at36m.Yes', 'ige035at36m.No'))
                     )
 
+str(dfData[,-1])
 
 cn = colnames(dfData)
 cn = cn[2:length(cn)]
@@ -123,7 +119,17 @@ lFm02 = lapply(cn2, function(x){
 
 names(lFm02) = cn2
 
+dfReport = data.frame(Shannon = dfShannon$`P-Value`)
+rownames(dfReport) = rownames(dfShannon)
 
+df = data.frame(lFm02[[1]][1])
+for(i in 2:length(lFm02)){
+  df = cbind(df, data.frame(lFm02[[i]][,1]))
+}
+colnames(df) = names(lFm02)
+
+dfReport = cbind(dfReport, df)
+write.csv(dfReport, file='3m_trimmed/Results/Covariate_p_values.xls')
 ## chao diversity
 dfData$Shannon = dfImport$chaomean
 
@@ -148,10 +154,12 @@ dfChao$Significant = Sig
 colnames(dfChao) = c('P-Value', 'Significant')
 
 ### box plots and density plots for diversity
-dfData = data.frame(Shannon=dfImport$shannonmean, Chao=dfImport$chaomean, Eczema3m=dfImport$ecz3m, Eczema3m.sev=factor(dfImport$eczsev3m))
+dfData = data.frame(Shannon=dfImport$shannonmean, Chao=dfImport$chaomean, Eczema3m=dfImport$ecz3m, Eczema3m.sev=factor(dfImport$eczsev3m),
+                    Eczema12m=dfImport$exam12mecz)
 str(dfData)
 
-boxplot(Shannon ~ Eczema3m, data=dfData)
+boxplot(Shannon ~ Eczema3m, data=dfData, ylab='3M Shannon Diversity', main='3M Shannon diversity and Eczema status at 3 months')
+boxplot(Shannon ~ Eczema12m, data=dfData, ylab='3M Shannon Diversity', main='3M Shannon diversity and Eczema status at 12 months')
 
 t = dfData$Shannon[dfData$Eczema3m == 'Yes']
 # calculate the mid points for histogram/discrete distribution
@@ -162,8 +170,9 @@ hist(t, prob=T, xlab='Shannon Diversity', ylab='', ylim=c(0, max(dn, h$density))
      xlim=c(1.5, 5.5))
 # parameterized on the means
 lines(h$mids, dn, col='black', type='b')
-points(qnorm(0.95, mean(t), sd(t)), 0, pch=20, col='red', cex=2)
-legend('topright', legend =c('Normal Density Curve', 'P-Value 0.05 Cutoff'), fill = c('black', 'red'))
+#points(qnorm(0.95, mean(t), sd(t)), 0, pch=20, col='red', cex=2)
+legend('topright', legend =c('Normal Density Curve'), fill = c('black'))
+
 
 t = dfData$Shannon[dfData$Eczema3m == 'No']
 # calculate the mid points for histogram/discrete distribution
@@ -175,6 +184,7 @@ hist(t, prob=T, xlab='Shannon Diversity', ylab='', ylim=c(0, max(dn, h$density))
 lines(h$mids, dn, col='black', type='b')
 points(qnorm(0.95, mean(t), sd(t)), 0, pch=20, col='red', cex=2)
 legend('topright', legend =c('Normal Density Curve', 'P-Value 0.05 Cutoff'), fill = c('black', 'red'))
+
 
 boxplot(Shannon ~ Eczema3m, data=dfData)
 abline(h = qnorm(0.95, mean(t), sd(t)), col='red', lwd=2)
@@ -193,10 +203,8 @@ f = gsub('Yes (Low|High)', 'Disease', f)
 f = gsub('No (\\w+)', 'Healthy \\1', f)
 dfData$Eczema3m.Diversity = factor(f)
 
-boxplot(Shannon ~ Eczema3m.Diversity, data=dfData, ylab='Shannon Diversity', main='High diversity has a protective effect')
+boxplot(Shannon ~ Eczema3m.Diversity, data=dfData, ylab='Shannon Diversity 3M', main='High diversity has a protective effect')
 abline(h = qnorm(0.95, mean(t), sd(t)), col='red', lwd=2)
-
-
 
 
 ## calculate prior and posterior probabilities
