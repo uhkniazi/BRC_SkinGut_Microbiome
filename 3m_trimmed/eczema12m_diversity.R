@@ -61,51 +61,6 @@ se = sqrt(abs(0.28 - (1-0.28))/261)
 0.28+2*se
 0.28-2*se
 
-# # try a logistic regression with diversity as covariate
-# library(lattice)
-# xyplot(ifelse(Eczema3m == "Yes", 1, 0) ~ Shannon | Eczema12m , data = dfData,
-#         type = c("p", "smooth"),
-#         auto.key = list(space = "top", points = FALSE,
-#                         lines = TRUE, columns = 4),
-#         ylab = "Eczema at 3 months", xlab = "Shannon Diversity")
-# 
-# xyplot(ifelse(Eczema3m == "Yes", 1, 0) ~ Shannon , data = dfData,
-#        type = c("p", "smooth"),
-#        auto.key = list(space = "top", points = FALSE,
-#                        lines = TRUE, columns = 4),
-#        ylab = "Eczema at 3 months", xlab = "Shannon Diversity")
-# 
-# 
-# xyplot(ifelse(Eczema12m == "Yes", 1, 0) ~ Shannon | Eczema3m , data = dfData,
-#        type = c("p", "smooth"),
-#        auto.key = list(space = "top", points = FALSE,
-#                        lines = TRUE, columns = 4),
-#        ylab = "Eczema at 12 months", xlab = "Shannon Diversity")
-# 
-# xyplot(ifelse(Eczema12m == "Yes", 1, 0) ~ Shannon , data = dfData,
-#        type = c("g", 'smooth'),
-#        auto.key = T,
-#        groups = Eczema3m,
-#        ylab = "Eczema at 12 months", xlab = "Shannon Diversity at 3 months")
-# 
-# xyplot(ifelse(Eczema12m == "Yes", 1, 0) ~ Scorad_cv3m , data = dfData,
-#        type = c("p"),
-#        auto.key = T,
-#        groups = NULL,
-#        ylab = "Eczema at 12 months", xlab = "Scorad 3 months")
-# 
-# xyplot(ifelse(Eczema12m == "Yes", 1, 0) ~ Scorad_cv12m , data = dfData,
-#        type = c("p"),
-#        auto.key = T,
-#        groups = NULL,
-#        ylab = "Eczema at 12 months", xlab = "Scorad 12 months")
-# 
-# xyplot(ifelse(Eczema3m == "Yes", 1, 0) ~ Scorad_cv3m , data = dfData, jitter=T,
-#        type = c("p"),
-#        auto.key = T,
-#        groups = NULL,
-#        ylab = "Eczema at 3 months", xlab = "Scorad 3 months")
-
 
 ## download the ccrossvalidation class to select variables of importance
 if(!require(downloader) || !require(methods)) stop('Library downloader and methods required')
@@ -118,23 +73,9 @@ source('CCrossValidation.R')
 # delete the file after source
 unlink('CCrossValidation.R')
 
-# # select a subset of the data 
-# dfData.sub = dfData[,-c(8,9,10,12, 13)]
-# dfData.sub = na.omit(dfData.sub)
-# dfData.sub = droplevels.data.frame(dfData.sub)
-# fGroups = dfData.sub$Eczema12m
-# dfData.sub = dfData.sub[,-8]
-# str(dfData.sub)
-# 
-# oVar.r = CVariableSelection.RandomForest(data = dfData.sub, fGroups)
-# plot.var.selection(oVar.r)
-# dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
-# 
-# oVar.r.12m = oVar.r
-
-# select a subset of the data, to check what is predictive of eczema at 12 months
+# check what is predictive of eczema at 12 months
 as.data.frame(colnames(dfData))
-dfData.sub = dfData#[,-c(8,9,10,12, 13)]
+dfData.sub = dfData
 dfData.sub = na.omit(dfData.sub)
 dfData.sub = droplevels.data.frame(dfData.sub)
 dim(dfData.sub)
@@ -231,7 +172,7 @@ as.data.frame(colnames(dfData.sub))
 dfData.sub = dfData.sub[,-3]
 str(dfData.sub)
 
-oVar.r = CVariableSelection.RandomForest(data = dfData.sub, fGroups, boot.num = 1000)
+oVar.r = CVariableSelection.RandomForest(data = dfData.sub, fGroups, boot.num = 100)
 plot.var.selection(oVar.r)
 dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
 dfRF
@@ -243,82 +184,41 @@ fm03 = glm(cvFormula, family=binomial(), data=dfData)
 Anova(fm03)
 anova(fm03, test='Chisq')
 summary(fm03)
+# remove food allergy
+rn = rownames(dfRF)
+rn = rn[c(1, 2, 3)]
+cn = c('Eczema12m', rn)
+str(dfData[,cn])
+dfData = dfData[,cn]
+summary(dfData)
 
-### quality check
-plot(profile(fm03))
-
-library(lattice)
-xyplot(ifelse(Eczema12m == "Yes", 1, 0) ~ (Scorad_cv3m) | FoodAllergy , data = dfData, 
-       type = c("p"),
-       auto.key = T,
-       groups = ige009.3m, pch=20,
-       ylab = "Eczema at 12 months", xlab = "Scorad 3 months")
-
-df = na.omit(dfData)
-
-oCV = CCrossValidation.LDA(test.dat = (df[,-3]), train.dat = (df[,-3]), test.groups = df$Eczema12m,
-                           train.groups = df$Eczema12m, level.predict = 'Yes', boot.num = 100, k.fold = 10)
-
-plot.cv.performance(oCV)
-
-p = predict(fm03, type='response', newdata=df)
-bEczema12m.p = rep('No', length.out=length(p))
-bEczema12m.p[p > 0.5] = 'Yes'
-table(bEczema12m.p)
-table(orig=df$Eczema12m, pred=bEczema12m.p)
-mean(df$Eczema12m != bEczema12m.p)
-mean(df$Eczema12m == bEczema12m.p)
-
-## drop everything apart from ige
-str(dfData)
-dfData = dfData[,c(3, 5)]
-fm03 = glm(Eczema12m ~ ., family=binomial(), data=dfData)
+fm03 = glm(Eczema12m ~ 1 + ., family=binomial(), data=dfData)
 Anova(fm03)
 anova(fm03, test='Chisq')
 summary(fm03)
 
-### quality check
-plot(profile(fm03))
-
 df = na.omit(dfData)
-str(df)
-oCV = CCrossValidation.LDA(test.dat = data.frame(ige=df$ige009.3m), train.dat = data.frame(ige=df$ige009.3m), test.groups = df$Eczema12m,
+
+oCV = CCrossValidation.LDA(test.dat = (df[,-1]), train.dat = (df[,-1]), test.groups = df$Eczema12m,
                            train.groups = df$Eczema12m, level.predict = 'Yes', boot.num = 100, k.fold = 10)
 
 plot.cv.performance(oCV)
 
-p = predict(fm03, type='response', newdata=df)
-bEczema12m.p = rep('No', length.out=length(p))
-bEczema12m.p[p > 0.5] = 'Yes'
-table(bEczema12m.p)
-table(orig=df$Eczema12m, pred=bEczema12m.p)
-mean(df$Eczema12m != bEczema12m.p)
-mean(df$Eczema12m == bEczema12m.p)
-# 
-# 
-# # select a subset of the data 
-# as.data.frame(colnames(dfData))
-# dfData.sub = dfData[,-c(11,9,10,12, 13)]
-# dfData.sub = na.omit(dfData.sub)
-# dfData.sub = droplevels.data.frame(dfData.sub)
-# fGroups = dfData.sub$Eczema3m
-# as.data.frame(colnames(dfData.sub))
-# dfData.sub = dfData.sub[,-8]
-# str(dfData.sub)
-# 
-# oVar.r = CVariableSelection.RandomForest(data = dfData.sub, fGroups)
-# plot.var.selection(oVar.r)
-# dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
-# dfRF
-# 
-# # create formula
-# cvFormula = paste0('Eczema3m ~ 1 + ', paste(rownames(dfRF), collapse = ' + '))
-# 
-# fm02 = glm(cvFormula, family=binomial(), data=dfData)
-# library(car)
-# Anova(fm02)
-# anova(fm02, test='Chisq')
-# summary(fm02)
+s = summary(fm03)$coefficients
+c = format(s[,1], digi=3)
+s.e = format(s[,2], digi=3)
+p = format(s[,4], digi=3)
+o = format(exp(s[,1]), digi=3)
+
+oFile = file('3m_trimmed/Results/eczema12m_covariates.xls', 'wt')
+
+writeLines('Prediction of Eczema status at 12 months using logistic regression', oFile)
+writeLines('Covariate,Coefficient,Std_err,P-Value,Odds', oFile)
+p1 = paste(rownames(s), c, s.e, p, o, sep=',')
+writeLines(p1, oFile)
+writeLines('\n\n', oFile)
+close(oFile)
+
 
 ## try multinomial regression before binomial
 ############################################################################
@@ -368,6 +268,8 @@ dfImp
 rn = rownames(dfImp)[-c(1:6)]
 str(dfData[,c('EczemaChange', rn)])
 dfData = dfData[,c('EczemaChange', rn)]
+# remove na 
+dfData = na.omit(dfData)
 ## fit the full model
 library(nnet)
 fm04 = multinom(EczemaChange ~ ., data=(dfData))
@@ -378,9 +280,120 @@ z = summary(fm04)$coefficients/summary(fm04)$standard.errors
 fm04.pvalues = (1 - pnorm(abs(z), 0, 1))*2
 fm04.pvalues
 
+# put these in a dataframe and examine
+c = format(t(summary(fm04)$coefficients), digi=3)
+s = format(t(summary(fm04)$standard.errors), digi=3)
+p = format(t(fm04.pvalues), digi=3)
+o = format(exp(t(summary(fm04)$coefficients)), digi=3)
+
+oFile = file('3m_trimmed/Results/change_in_eczema_status_3_to_12_months_covariates_2.xls', 'wt')
+
+writeLines('No:Yes - developed eczema from 3 to 12 months', oFile)
+writeLines('Covariate,Coefficient,Std_err,P-Value,Odds', oFile)
+p1 = paste(rownames(c), c[,1], s[,1], p[,1], o[,1], sep=',')
+writeLines(p1, oFile)
+writeLines('\n\n', oFile)
+
+writeLines('Yes:No - lost eczema from 3 to 12 months', oFile)
+writeLines('Covariate,Coefficient,Std_err,P-Value,Odds', oFile)
+p1 = paste(rownames(c), c[,2], s[,2], p[,2], o[,2], sep=',')
+writeLines(p1, oFile)
+writeLines('\n\n', oFile)
+
+writeLines('Yes:Yes - stayed eczema from 3 to 12 months', oFile)
+writeLines('Covariate,Coefficient,Std_err,P-Value,Odds', oFile)
+p1 = paste(rownames(c), c[,3], s[,3], p[,3], o[,3], sep=',')
+writeLines(p1, oFile)
+writeLines('\n\n', oFile)
+
+close(oFile)
+
+## repeat after using only significant variables
+rn = rownames(dfImp)
+as.data.frame(rn)
+rn = c('ige009.3m', 'Male', 'DaysOldWhenSampled')#rn[c(7,15)]
+
+dfData = data.frame(Shannon=dfImport$shannonmean, Frozen=factor(ifelse(dfImport$frozen1yes == 1, 'Yes', 'No')),
+                    DaysOldWhenSampled= dfImport$daysoldwhensamplepassed,
+                    Male=factor(ifelse(dfImport$male == 'Yes', 'Male', 'Female')),
+                    Caesarean=factor(ifelse(dfImport$Caesarean.born == 'Yes', 'Yes', 'No')),
+                    Siblings=factor(ifelse(dfImport$anysibs == 'Yes', 'Yes', 'No')),
+                    Pets=factor(ifelse(dfImport$catordog3m == 1, 'Yes', 'No')),
+                    Eczema3m=dfImport$ecz3m, Eczema3m.sev=factor(dfImport$eczsev3m),
+                    Scorad_cv3m = dfImport$scorad_cv3m, 
+                    Eczema12m=factor(ifelse(dfImport$exam12mecz == 'Yes', 'Yes', 'No')),
+                    Eczema12m.sev=dfImport$exam12meczsev,
+                    Scorad_cv12m = dfImport$scorad_cv12m,
+                    FoodAllergy=factor(ifelse(dfImport$foodallergy == 'Yes', 'Yes', 'No')),
+                    AntiBiotics.any = factor(ifelse(dfImport$anyrouteantbxlastmonth == 1, 'Yes', 'No')),
+                    AntiBiotics.oral = factor(ifelse(dfImport$oralantibioticslastweek == 1, 'Yes', 'No')),
+                    ige009.3m = factor(ifelse(dfImport$ige009at3m == 'Yes', 'Yes', 'No')),
+                    ige035.12m = factor(ifelse(dfImport$ige035at12m == 'Yes', 'Yes', 'No')),
+                    anyfoodsensitised_cv12m = factor(ifelse(dfImport$anyfoodsensitised_cv12m == 'Yes', 'Yes',
+                                                            'No')),
+                    ige035.36m = factor(ifelse(dfImport$ige035at36m == 'Yes', 'Yes', 'No'))
+)
+
+# the response variable to model is eczema status at 12 months
+# remove NA values from this 
+i = is.na(dfData$Eczema12m)
+table(i)
+
+# 26 values missing
+dfData = dfData[!i,]
+
+table(dfData$Eczema3m:dfData$Eczema12m)
+dfData$EczemaChange = factor(dfData$Eczema3m:dfData$Eczema12m)
+dfData$EczemaChange = relevel(dfData$EczemaChange, 'No:No')
+
+str(dfData[,c('EczemaChange', rn)])
+dfData = dfData[,c('EczemaChange', rn)]
+summary(dfData)
+dim(na.omit(dfData))
+dim(dfData)
+dfData = na.omit(dfData)
+
+fm04 = multinom(EczemaChange ~ ., data=(dfData))
+summary(fm04)
+# wald test p-values
+z = summary(fm04)$coefficients/summary(fm04)$standard.errors
+# calculate p-values from z scores
+fm04.pvalues = (1 - pnorm(abs(z), 0, 1))*2
+fm04.pvalues
+
+# put these in a dataframe and examine
+c = format(t(summary(fm04)$coefficients), digi=3)
+s = format(t(summary(fm04)$standard.errors), digi=3)
+p = format(t(fm04.pvalues), digi=3)
+o = format(exp(t(summary(fm04)$coefficients)), digi=3)
+
+oFile = file('3m_trimmed/Results/change_in_eczema_status_3_to_12_months_covariates_3.xls', 'wt')
+
+writeLines('No:Yes - developed eczema from 3 to 12 months', oFile)
+writeLines('Covariate,Coefficient,Std_err,P-Value,Odds', oFile)
+p1 = paste(rownames(c), c[,1], s[,1], p[,1], o[,1], sep=',')
+writeLines(p1, oFile)
+writeLines('\n\n', oFile)
+
+writeLines('Yes:No - lost eczema from 3 to 12 months', oFile)
+writeLines('Covariate,Coefficient,Std_err,P-Value,Odds', oFile)
+p1 = paste(rownames(c), c[,2], s[,2], p[,2], o[,2], sep=',')
+writeLines(p1, oFile)
+writeLines('\n\n', oFile)
+
+writeLines('Yes:Yes - stayed eczema from 3 to 12 months', oFile)
+writeLines('Covariate,Coefficient,Std_err,P-Value,Odds', oFile)
+p1 = paste(rownames(c), c[,3], s[,3], p[,3], o[,3], sep=',')
+writeLines(p1, oFile)
+writeLines('\n\n', oFile)
+
+close(oFile)
+
+
 ############################################################################
 # what about an interaction between eczema12m and eczema3m, which people
 # had eczema at 3 months and don't have it at 12 and vice versa
+## use 2 group comparisons as a binomial problem
 dfData = data.frame(Shannon=dfImport$shannonmean, Frozen=factor(ifelse(dfImport$frozen1yes == 1, 'Yes', 'No')),
                     DaysOldWhenSampled= dfImport$daysoldwhensamplepassed,
                     Male=factor(ifelse(dfImport$male == 'Yes', 'Male', 'Female')),
@@ -421,7 +434,6 @@ table(fEczemaNoYes)
 levels(fEczemaNoYes)
 
 dfData$EczemaNoYes = fEczemaNoYes
-
 # select a subset of the data 
 as.data.frame(colnames(dfData))
 dfData.sub = dfData#[,-c(8, 9, 10, 11, 12, 13)]
@@ -439,7 +451,7 @@ dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
 dfRF
 # drop the top terms i.e. eczema status at 12m 3m and scores
 rn = rownames(dfRF)
-rn = rn[-c(1:3)]
+rn = rn[-c(1:6)]
 # create formula
 cvFormula = paste0('EczemaNoYes ~ 1 + ', paste(rn, collapse = ' + '))
 cvFormula
@@ -453,95 +465,57 @@ cn = c('EczemaNoYes', rn)
 str(dfData[,cn])
 dfData = dfData[,cn]
 
-df = na.omit(dfData)
-
-oCV = CCrossValidation.LDA(test.dat = (df[,-1]), train.dat = (df[,-1]), test.groups = df$EczemaNoYes,
+df = na.omit(data.frame(days=dfData$DaysOldWhenSampled, EczemaNoYes=dfData$EczemaNoYes))
+df2 = data.frame(days=df$days)
+oCV = CCrossValidation.LDA(test.dat = df2, train.dat = df2, test.groups = df$EczemaNoYes,
                            train.groups = df$EczemaNoYes, level.predict = 'No:Yes', boot.num = 100, k.fold = 10)
-#### doesnt fit, reduce variable count
-##
-as.data.frame(colnames(dfData))
-dfData.sub = dfData
-dfData.sub = na.omit(dfData.sub)
-dfData.sub = droplevels.data.frame(dfData.sub)
-fGroups = dfData.sub$EczemaNoYes
-as.data.frame(colnames(dfData.sub))
-dfData.sub = dfData.sub[,-1]
-str(dfData.sub)
+plot.cv.performance(oCV)
 
-oVar.r = CVariableSelection.RandomForest(data = dfData.sub, fGroups)
-plot.var.selection(oVar.r)
-dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
-dfRF
-# drop the top terms i.e. scorad 3m and eczema severity 3m
-rn = rownames(dfRF)
-rn = rn[-c(1:2)]
-# create formula
-cvFormula = paste0('EczemaNoYes ~ 1 + ', paste(rn, collapse = ' + '))
-cvFormula
-fm04 = glm(cvFormula, family=binomial(), data=dfData)
-Anova(fm04)
-anova(fm04, test='Chisq')
-summary(fm04)
 
-p = predict(fm04, type='response', newdata=na.omit(dfData))
-bEczema12m.p = rep('Other', length.out=length(p))
-bEczema12m.p[p > 0.5] = 'No:Yes'
-table(bEczema12m.p)
-table(orig=na.omit(dfData)$EczemaNoYes, pred=bEczema12m.p)
-mean(na.omit(dfData)$EczemaNoYes != bEczema12m.p)
-mean(na.omit(dfData)$EczemaNoYes == bEczema12m.p)
 
-## this has no predictive power, drop some variables
-rn = rownames(dfRF)
-rn = rn[-c(1:3)]
-cn = c('EczemaNoYes', rn)
-str(dfData[,cn])
-dfData = dfData[,cn]
-as.data.frame(colnames(dfData))
-dfData.sub = dfData
-dfData.sub = na.omit(dfData.sub)
-dfData.sub = droplevels.data.frame(dfData.sub)
-fGroups = dfData.sub$EczemaNoYes
-as.data.frame(colnames(dfData.sub))
-dfData.sub = dfData.sub[,-1]
-str(dfData.sub)
-
-oVar.r = CVariableSelection.RandomForest(data = dfData.sub, fGroups)
-plot.var.selection(oVar.r)
-dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
-dfRF
-rn = rownames(dfRF)
-# create formula
-cvFormula = paste0('EczemaNoYes ~ 1 + ', paste(rn, collapse = ' + '))
-cvFormula
-fm04 = glm(cvFormula, family=binomial(), data=dfData)
-Anova(fm04)
-anova(fm04, test='Chisq')
-summary(fm04)
-
-## only food allergy and days old are significant
-p = predict(fm04, type='response', newdata=na.omit(dfData))
-bEczema12m.p = rep('Other', length.out=length(p))
-bEczema12m.p[p > 0.5] = 'No:Yes'
-table(bEczema12m.p)
-table(orig=na.omit(dfData)$EczemaNoYes, pred=bEczema12m.p)
-mean(na.omit(dfData)$EczemaNoYes != bEczema12m.p)
-mean(na.omit(dfData)$EczemaNoYes == bEczema12m.p)
-
-# refit the model with only the 2 variables
-fm05 = update(fm04, EczemaNoYes ~ DaysOldWhenSampled + FoodAllergy)
+# refit the model with only the 1 variable
+fm05 = update(fm04, EczemaNoYes ~ DaysOldWhenSampled)
 Anova(fm05)
 summary(fm05)
 plogis(coef(fm05)[2])
-
-
+table(dfData$EczemaNoYes)
+library(lattice)
 ## what is the relationship of days old when sampled
-xyplot(ifelse(dfData$EczemaNoYes == "No:Yes", 1, 0) ~ DaysOldWhenSampled | FoodAllergy, data = dfData,
+xyplot(ifelse(dfData$EczemaNoYes == "No:Yes", 1, 0) ~ DaysOldWhenSampled, data = dfData,
        type = c("p", "smooth"),
        ylab = "Developed Eczema from 3 to 12 months", xlab = "DaysOldWhenSampled")
 
 
-## try in other direction, i.e. how many got better from 3 to 12 months
+####### repeat the analysis in other direction
+dfData = data.frame(Shannon=dfImport$shannonmean, Frozen=factor(ifelse(dfImport$frozen1yes == 1, 'Yes', 'No')),
+                    DaysOldWhenSampled= dfImport$daysoldwhensamplepassed,
+                    Male=factor(ifelse(dfImport$male == 'Yes', 'Male', 'Female')),
+                    Caesarean=factor(ifelse(dfImport$Caesarean.born == 'Yes', 'Yes', 'No')),
+                    Siblings=factor(ifelse(dfImport$anysibs == 'Yes', 'Yes', 'No')),
+                    Pets=factor(ifelse(dfImport$catordog3m == 1, 'Yes', 'No')),
+                    Eczema3m=dfImport$ecz3m, Eczema3m.sev=factor(dfImport$eczsev3m),
+                    Scorad_cv3m = dfImport$scorad_cv3m, 
+                    Eczema12m=factor(ifelse(dfImport$exam12mecz == 'Yes', 'Yes', 'No')),
+                    Eczema12m.sev=dfImport$exam12meczsev,
+                    Scorad_cv12m = dfImport$scorad_cv12m,
+                    FoodAllergy=factor(ifelse(dfImport$foodallergy == 'Yes', 'Yes', 'No')),
+                    AntiBiotics.any = factor(ifelse(dfImport$anyrouteantbxlastmonth == 1, 'Yes', 'No')),
+                    AntiBiotics.oral = factor(ifelse(dfImport$oralantibioticslastweek == 1, 'Yes', 'No')),
+                    ige009.3m = factor(ifelse(dfImport$ige009at3m == 'Yes', 'Yes', 'No')),
+                    ige035.12m = factor(ifelse(dfImport$ige035at12m == 'Yes', 'Yes', 'No')),
+                    anyfoodsensitised_cv12m = factor(ifelse(dfImport$anyfoodsensitised_cv12m == 'Yes', 'Yes',
+                                                            'No')),
+                    ige035.36m = factor(ifelse(dfImport$ige035at36m == 'Yes', 'Yes', 'No'))
+)
+
+# the response variable to model is eczema status at 12 months
+# remove NA values from this 
+i = is.na(dfData$Eczema12m)
+table(i)
+
+# 26 values missing
+dfData = dfData[!i,]
+
 table(dfData$Eczema3m:dfData$Eczema12m)
 
 fEczemaYesNo = rep('Yes:No', length=nrow(dfData))
@@ -551,248 +525,44 @@ fEczemaYesNo[i] = 'Other'
 fEczemaYesNo = factor(fEczemaYesNo, levels=c('Other', 'Yes:No'))
 table(fEczemaYesNo)
 levels(fEczemaYesNo)
+dfData$EczemaYesNo = fEczemaYesNo
+rm(fEczemaYesNo)
+str(dfData)
 
-# select a subset of the data 
 as.data.frame(colnames(dfData))
-dfData.sub = dfData[,-c(8, 9, 10, 11, 12, 13)]
-dfData.sub$fEczemaYesNo = fEczemaYesNo
+dfData.sub = dfData
 dfData.sub = na.omit(dfData.sub)
 dfData.sub = droplevels.data.frame(dfData.sub)
-fGroups = dfData.sub$fEczemaYesNo
+fGroups = dfData.sub$EczemaYesNo
 as.data.frame(colnames(dfData.sub))
-dfData.sub = dfData.sub[,-15]
+dfData.sub = dfData.sub[,-21]
 str(dfData.sub)
 
 oVar.r = CVariableSelection.RandomForest(data = dfData.sub, fGroups)
 plot.var.selection(oVar.r)
 dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
 dfRF
-dfData.sub = dfData
-dfData.sub$fEczemaYesNo = fEczemaYesNo
-rm(fEczemaYesNo)
 
+# drop the top terms i.e. eczema status at 12m 3m and scores
+rn = rownames(dfRF)
+rn = rn[-c(1:6)]
 # create formula
-cvFormula = paste0('fEczemaYesNo ~ 1 + ', paste(rownames(dfRF), collapse = ' + '))
+cvFormula = paste0('EczemaYesNo ~ 1 + ', paste(rn, collapse = ' + '))
 cvFormula
-fm04 = glm(cvFormula, family=binomial(), data=dfData.sub)
-library(car)
-Anova(fm04)
-anova(fm04, test='Chisq')
-summary(fm04)
+fm06 = glm(cvFormula, family=binomial(), data=dfData)
+Anova(fm06)
+anova(fm06, test='Chisq')
+summary(fm06)
 
-## what is the relationship of days old when sampled
-xyplot(ifelse(fEczemaYesNo == "Yes:No", 1, 0) ~ DaysOldWhenSampled, data = dfData.sub,
-       type = c("p", "smooth"),
-       auto.key = list(space = "top", points = FALSE,
-                       lines = TRUE, columns = 4),
-       ylab = "Eczema healed from 3 to 12 months", xlab = "DaysOldWhenSampled")
+## drop these terms from the data.frame
+cn = c('EczemaYesNo', rn)
+str(dfData[,cn])
+dfData = dfData[,cn]
 
 
-
-dfData.sub$change = dfData.sub$Eczema3m:dfData.sub$Eczema12m
-xyplot(ifelse(Eczema3m == "Yes", 1, 0) ~ DaysOldWhenSampled | change, data = dfData.sub,
-       type = c("p"),
-       auto.key = list(space = "top", points = FALSE,
-                       lines = TRUE, columns = 4),
-       ylab = "Eczema healed from 3 to 12 months", xlab = "DaysOldWhenSampled")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-fm02 = update(fm01, Eczema12m ~ Shannon + Eczema3m)
-summary(fm02)
-
-p = predict(fm02, data=dfData, type='response')
-plot(dfData$Shannon, p)
-
-fm02 = update(fm01, Eczema12m ~ Eczema3m)
-summary(fm02)
-
-fm03 = glm(Eczema3m ~ Shannon, family=binomial(), data=dfData)
-summary(fm03)
-fm04 = update(fm03, Eczema3m ~ Shannon)
-summary(fm04)
-
-p = predict(fm01, data=dfData, type='response')
-plot(dfData$Shannon, p, pch=20)
-
-str(dfData[,-1])
-
-cn = colnames(dfData)
-cn = cn[2:length(cn)]
-
-lFm = lapply(cn, function(x) {
-  df = dfData[,c('Shannon', x)]
-  fm = lm(Shannon ~ ., data=df)
-})
-
-names(lFm) = cn
-
-m = sapply(lFm, function(x){
-  s = Anova(x)
-  s$`Pr(>F)`
-})
-
-dfShannon = round((m[1,]), 3)
-dfShannon = data.frame(dfShannon)
-Sig = ifelse(dfShannon[,1] < 0.05, 'Yes', 'No')
-dfShannon$Significant = Sig
-colnames(dfShannon) = c('P-Value', 'Significant')
-
-## repeat for each diversity proportion of organisms
-## organism abundance scores
-cn2 = colnames(dfImport)
-i = grep('__', cn2)
-cn2 = cn2[i]
-
-lFm02 = lapply(cn2, function(x){
-  print(x)
-  org = logit(abs(jitter(dfImport[,x])))
-  cn = colnames(dfData)
-  cn = cn[2:length(cn)]
-  
-  lFm = lapply(cn, function(x) {
-    df = data.frame(org=org, x=dfData[,x])
-    fm = lm(org ~ ., data=df)
-  })
-  
-  names(lFm) = cn
-  
-  m = sapply(lFm, function(x){
-    s = Anova(x)
-    s$`Pr(>F)`
-  })
-  
-  dfShannon = round((m[1,]), 3)
-  dfShannon = data.frame(dfShannon)
-  Sig = ifelse(dfShannon[,1] < 0.05, 'Yes', 'No')
-  dfShannon$Significant = Sig
-  colnames(dfShannon) = c('P-Value', 'Significant')
-  return(dfShannon)
-})
-
-names(lFm02) = cn2
-
-dfReport = data.frame(Shannon = dfShannon$`P-Value`)
-rownames(dfReport) = rownames(dfShannon)
-
-df = data.frame(lFm02[[1]][1])
-for(i in 2:length(lFm02)){
-  df = cbind(df, data.frame(lFm02[[i]][,1]))
-}
-colnames(df) = names(lFm02)
-
-dfReport = cbind(dfReport, df)
-write.csv(dfReport, file='3m_trimmed/Results/Covariate_p_values.xls')
-## chao diversity
-dfData$Shannon = dfImport$chaomean
-
-cn = colnames(dfData)
-cn = cn[2:length(cn)]
-lFm.g = lapply(cn, function(x) {
-  df = dfData[,c('Shannon', x)]
-  fm = glm(Shannon ~ ., data=df, family = Gamma(link='inverse'))
-})
-
-names(lFm.g) = cn
-
-m = sapply(lFm.g, function(x){
-  s = Anova(x)
-  s$`Pr(>Chisq)`
-})
-
-dfChao = round(m, 3)
-dfChao = data.frame(dfChao)
-Sig = ifelse(dfChao[,1] < 0.05, 'Yes', 'No')
-dfChao$Significant = Sig
-colnames(dfChao) = c('P-Value', 'Significant')
-
-### box plots and density plots for diversity
-dfData = data.frame(Shannon=dfImport$shannonmean, Chao=dfImport$chaomean, Eczema3m=dfImport$ecz3m, Eczema3m.sev=factor(dfImport$eczsev3m),
-                    Eczema12m=dfImport$exam12mecz)
-str(dfData)
-
-boxplot(Shannon ~ Eczema3m, data=dfData, ylab='3M Shannon Diversity', main='3M Shannon diversity and Eczema status at 3 months')
-boxplot(Shannon ~ Eczema12m, data=dfData, ylab='3M Shannon Diversity', main='3M Shannon diversity and Eczema status at 12 months')
-
-t = dfData$Shannon[dfData$Eczema3m == 'Yes']
-# calculate the mid points for histogram/discrete distribution
-h = hist(t, plot=F)
-dn = dnorm(h$mids, mean(t), sd(t))
-# which distribution can approximate the frequency
-hist(t, prob=T, xlab='Shannon Diversity', ylab='', ylim=c(0, max(dn, h$density)), main='Distribution of Shannon Diversity in Disease',
-     xlim=c(1.5, 5.5))
-# parameterized on the means
-lines(h$mids, dn, col='black', type='b')
-#points(qnorm(0.95, mean(t), sd(t)), 0, pch=20, col='red', cex=2)
-legend('topright', legend =c('Normal Density Curve'), fill = c('black'))
-
-
-t = dfData$Shannon[dfData$Eczema3m == 'No']
-# calculate the mid points for histogram/discrete distribution
-h = hist(t, plot=F)
-dn = dnorm(h$mids, mean(t), sd(t))
-# which distribution can approximate the frequency
-hist(t, prob=T, xlab='Shannon Diversity', ylab='', ylim=c(0, max(dn, h$density)), main='Distribution of Shannon Diversity in Healthy')
-# parameterized on the means
-lines(h$mids, dn, col='black', type='b')
-points(qnorm(0.95, mean(t), sd(t)), 0, pch=20, col='red', cex=2)
-legend('topright', legend =c('Normal Density Curve', 'P-Value 0.05 Cutoff'), fill = c('black', 'red'))
-
-
-boxplot(Shannon ~ Eczema3m, data=dfData)
-abline(h = qnorm(0.95, mean(t), sd(t)), col='red', lwd=2)
-
-iCut.pt = qnorm(0.95, mean(t), sd(t))
-i = which(dfData$Shannon > iCut.pt)
-fSubGroups = rep('Low', times=length(dfData$Shannon))
-fSubGroups[i] = 'High'
-fSubGroups = factor(fSubGroups, levels=c('Low', 'High'))
-dfData$fSubGroups = fSubGroups
-# drop one value i.e outlier in the data
-# i = which(dfData$Eczema3m == 'Yes' & dfData$fSubGroups == 'High')
-# dfData = dfData[-i,]
-f = paste(dfData$Eczema3m, dfData$fSubGroups, sep=' ')
-f = gsub('Yes (Low|High)', 'Disease', f)
-f = gsub('No (\\w+)', 'Healthy \\1', f)
-dfData$Eczema3m.Diversity = factor(f)
-
-boxplot(Shannon ~ Eczema3m.Diversity, data=dfData, ylab='Shannon Diversity 3M', main='High diversity has a protective effect')
-abline(h = qnorm(0.95, mean(t), sd(t)), col='red', lwd=2)
-
-
-## calculate prior and posterior probabilities
-## P(Ec = Y | Group=High), P(Ec = N | Group=High)
-t = xtabs( ~ Eczema3m + fSubGroups, data=dfData)
-# confusion matrix
-mConf = t
-mConf = mConf/sum(rowSums(mConf))
-pec = rowSums(mConf)
-pgr = colSums(mConf)
-mProbEc.Given.Group = sweep(mConf, 2, pgr, '/')
-t(outer(pgr, pec))
-mConf
-mProbEc.Given.Group
-# prior
-pec
-# post
-mProbEc.Given.Group[,'High']
-mProbEc.Given.Group[,'Low']
+# refit the model with only the 1 variable
+fm07 = update(fm06, EczemaYesNo ~ AntiBiotics.any)
+Anova(fm07)
+summary(fm07)
+table(dfData$EczemaYesNo)
 
