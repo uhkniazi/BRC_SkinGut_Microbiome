@@ -4,26 +4,6 @@
 # Desc: multinomial regression for 3 month diversity split into groups
 
 
-### functions
-# getalphabeta.poisson = function(lambda){
-#   m = mean(lambda)
-#   v = var(lambda)
-#   alpha = (m^2)/v
-#   beta = alpha/m
-#   return(c(alpha=alpha, beta=beta))
-# }
-# 
-# getalphabeta.beta = function(m, v){
-#   al.be = (m * (1-m) / v) - 1
-#   al = al.be * m
-#   be = al.be * (1-m)
-#   return(c(alpha=al, beta=be))
-# }
-# 
-# logit = function(p) log(p/(1-p))
-# logit.inv = function(p) {exp(p)/(exp(p)+1) }
-###
-
 dfImport = read.csv(file.choose(), header=T)
 
 str(dfImport)
@@ -56,9 +36,6 @@ dfData = data.frame(Shannon=dfImport$shannonmean, Frozen=factor(ifelse(dfImport$
                     ige035.36m = factor(ifelse(dfImport$ige035at36m == 'Yes', 'Yes', 'No'))
 )
 
-
-# dfData = data.frame(Shannon=dfImport$shannonmean, Eczema3m=dfImport$ecz3m, 
-#                     Eczema12m=dfImport$exam12mecz)
 str(dfData)
 
 t = dfData$Shannon[dfData$Eczema3m == 'Yes']
@@ -141,11 +118,19 @@ dfRF
 rn = rownames(dfRF)
 data.frame(rn)
 ## look at the top variables and perform subset selection
-i = which(colnames(dfData.sub) %in% rn[c(5:19)])
-dfData.sub = dfData.sub[,i]
+dfData.sub = dfData
+dim(dfData.sub)
+i = which(colnames(dfData.sub) %in% c(rn[c(6:19)], 'DiversityClass'))
+str(dfData.sub[,i])
+dfData.sub = na.omit(dfData.sub[,i])
+str(dfData.sub)
+dfData.sub = droplevels.data.frame(dfData.sub)
+as.data.frame(colnames(dfData.sub))
+fGroups = dfData.sub$DiversityClass
+dfData.sub = dfData.sub[,-15]
 str(dfData.sub)
 
-oVar.s = CVariableSelection.ReduceModel(dfData.sub, fGroups, boot.num = 100)
+oVar.s = CVariableSelection.ReduceModel(dfData.sub, fGroups, boot.num = 30)
 plot.var.selection(oVar.s)
 
 sapply(seq_along(1:ncol(dfData.sub)), function(x) CVariableSelection.ReduceModel.getMinModel(oVar.s, x))
@@ -154,6 +139,7 @@ cn = CVariableSelection.ReduceModel.getMinModel(oVar.s, 4)
 
 ## perform logistic regression analysis on these variables
 # create formula
+cn = c(cn)
 cvFormula = paste0('DiversityClass ~ 1 + ', paste(cn, collapse = ' + '))
 cvFormula
 fm01 = glm(cvFormula, family=binomial(), data=dfData, control = list(maxit=100))
@@ -162,23 +148,53 @@ Anova(fm01)
 anova(fm01, test='Chisq')
 summary(fm01)
 
+fm02 = update(fm01, DiversityClass ~ 1 + Frozen)
+anova(fm02, fm01, test='Chisq')
+summary(fm02)
+## you can calculate these odds ratios manually from contingency table
+t = xtabs(~ DiversityClass + Frozen, data=dfData)
+t
+# Low   77 187
+# High   8   4
+# > 187+4
+# [1] 191
+# > 4/191
+# [1] 0.02094241 ### Prob of D=H given FrozenYes
+# > 187/191
+# [1] 0.9790576
+# > 0.021/0.989
+# [1] 0.02123357
+# > 77+8
+# [1] 85
+# > 8/85
+# [1] 0.09411765
+# > 77/85
+# [1] 0.9058824
+# > 0.094+0.906
+# [1] 1
+# > 0.094/0.906
+# [1] 0.1037528
+# > log(0.021) - log(0.104)
+# [1] -1.599868
+plogis(sum(coef(fm02)))
+# Prob of D=H given FrozenYes
 
-
-## calculate prior and posterior probabilities
-## P(Ec = Y | Group=High), P(Ec = N | Group=High)
-t = xtabs( ~ Eczema3m + fSubGroups, data=dfData)
-# confusion matrix
-mConf = t
-mConf = mConf/sum(rowSums(mConf))
-pec = rowSums(mConf)
-pgr = colSums(mConf)
-mProbEc.Given.Group = sweep(mConf, 2, pgr, '/')
-t(outer(pgr, pec))
-mConf
-mProbEc.Given.Group
-# prior
-pec
-# post
-mProbEc.Given.Group[,'High']
-mProbEc.Given.Group[,'Low']
+# 
+# ## calculate prior and posterior probabilities
+# ## P(Ec = Y | Group=High), P(Ec = N | Group=High)
+# t = xtabs( ~ Eczema3m + fSubGroups, data=dfData)
+# # confusion matrix
+# mConf = t
+# mConf = mConf/sum(rowSums(mConf))
+# pec = rowSums(mConf)
+# pgr = colSums(mConf)
+# mProbEc.Given.Group = sweep(mConf, 2, pgr, '/')
+# t(outer(pgr, pec))
+# mConf
+# mProbEc.Given.Group
+# # prior
+# pec
+# # post
+# mProbEc.Given.Group[,'High']
+# mProbEc.Given.Group[,'Low']
 
