@@ -1,7 +1,7 @@
 # Name: diversity_report.R
 # Auth: umar.niazi@kcl.ac.uk
 # Date: 02/11/2016
-# Desc: regression analysis for diversity at 3 months
+# Desc: multiple regression analysis for diversity at 3 months
 
 
 
@@ -72,8 +72,8 @@ str(dfData.sub)
 
 rn = rownames(dfRF)
 data.frame(rn)
-## look at the top variables and perform subset selection
-i = which(colnames(dfData.sub) %in% rn[c(1, 2, 6, 7, 8, 10:16, 19)])
+## look at the covariate variables and perform subset selection
+i = which(colnames(dfData.sub) %in% rn[c(1, 2, 6, 7, 9, 10, 11, 14, 15, 17, 18)])
 str(dfData.sub[,i])
 dfData.sub = dfData.sub[,i]
 str(dfData.sub)
@@ -83,7 +83,7 @@ plot.var.selection(oVar.s)
 
 sapply(seq_along(1:ncol(dfData.sub)), function(x) CVariableSelection.ReduceModel.getMinModel(oVar.s, x))
 
-cn = CVariableSelection.ReduceModel.getMinModel(oVar.s, 13)
+cn = CVariableSelection.ReduceModel.getMinModel(oVar.s, 11)
 cn
 ## perform regression analysis on all covariates variables
 # create formula
@@ -94,20 +94,28 @@ Anova(fm01)
 anova(fm01, test='Chisq')
 summary(fm01)
 
+## the 5 variable model from subset selection and after regression
+cn = CVariableSelection.ReduceModel.getMinModel(oVar.s, 3)
+cn
+
+
 library(lattice)
 str(dfData)
 ## how does the density compare with eczema at 3 months and covariates
 densityplot(~ Shannon, data=dfData, auto.key=T, groups=Frozen, main='Shannon Diversity 3m given Frozen')
 densityplot(~ Shannon, data=dfData, auto.key=T, groups=Pets, main='Shannon Diversity 3m given Pets')
-densityplot(~ Shannon, data=dfData, auto.key=T, groups=Male, main='Shannon Diversity 3m given Pets')
+densityplot(~ Shannon, data=dfData, auto.key=T, groups=Male, main='Shannon Diversity 3m given Male')
+densityplot(~ Shannon, data=dfData, auto.key=T, groups=Siblings, main='Shannon Diversity 3m given Siblings')
+
+xyplot(Shannon ~ DaysOldWhenSampled | Frozen, data=dfData, groups=Eczema3m, auto.key = T)
+
 densityplot(~ Shannon, data=dfData, auto.key=T, groups=Eczema3m, main='Shannon Diversity 3m Eczema Status 3m')
 
-## choose a 3 variable model 
-cn = CVariableSelection.ReduceModel.getMinModel(oVar.s, 3)
-cn = c(cn, 'Eczema3m')
+## choose a 4 variable model 
+cn = c('Frozen', 'Pets', 'Siblings', 'Eczema3m')
 ## perform regression analysis on all covariates variables
 # create formula
-cvFormula = paste0('Shannon ~ 1 + ', paste(cn, collapse = ' + '))
+cvFormula = paste0('Shannon ~ ', paste(cn, collapse = ' + '))
 cvFormula
 fm02 = lm(cvFormula, data=dfData)
 Anova(fm02)
@@ -120,6 +128,20 @@ summary(fm03)
 xyplot(ifelse(dfData$Eczema3m == "Yes", 1, 0) ~ Shannon | Frozen, data = dfData,
        type = c("p", "smooth"),
        ylab = "Eczema at 3 months", xlab = "Shannon Diversity", main='Eczema at 3m vs Diversity given Frozen')
+
+
+xyplot(ifelse(dfData$Eczema3m == "Yes", 1, 0) ~ Shannon, data = dfData,
+       type = c("p"),
+       ylab = "Eczema at 3 months", xlab = "Shannon Diversity", main='Eczema at 3m vs Diversity')
+
+xyplot(ifelse(dfData$Eczema3m == "Yes", 1, 0) ~ Shannon | Frozen, data = dfData,
+       type = c("p"),
+       ylab = "Eczema at 3 months", xlab = "Shannon Diversity", main='Eczema at 3m vs Diversity given Frozen')
+
+## add an interaction term after observing this pattern
+fm03 = update(fm02, Shannon ~ 1 + Frozen + Pets + Siblings + Eczema3m + Eczema3m:Frozen)
+summary(fm03)
+anova(fm02, fm03, test='Chisq')
 
 
 
