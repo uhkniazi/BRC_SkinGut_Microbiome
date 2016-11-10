@@ -120,14 +120,17 @@ data.frame(rn)
 ## look at the top variables and perform subset selection
 dfData.sub = dfData
 dim(dfData.sub)
-i = which(colnames(dfData.sub) %in% c(rn[c(6:19)], 'DiversityClass'))
+# remove the top variables as those include the main effects to be tested later
+# we want to look for important covariates in this step
+i = which(colnames(dfData.sub) %in% c(rn[c(6:18)], 'DiversityClass'))
 str(dfData.sub[,i])
-dfData.sub = na.omit(dfData.sub[,i])
+cn = c(colnames(dfData.sub[,i]), 'DiversityClass')
+dfData.sub = na.omit(dfData[,cn])
 str(dfData.sub)
 dfData.sub = droplevels.data.frame(dfData.sub)
 as.data.frame(colnames(dfData.sub))
 fGroups = dfData.sub$DiversityClass
-dfData.sub = dfData.sub[,-15]
+dfData.sub = dfData.sub[,-14]
 str(dfData.sub)
 
 oVar.s = CVariableSelection.ReduceModel(dfData.sub, fGroups, boot.num = 30)
@@ -151,6 +154,14 @@ summary(fm01)
 fm02 = update(fm01, DiversityClass ~ 1 + Frozen)
 anova(fm02, fm01, test='Chisq')
 summary(fm02)
+
+## use the Eczema at 3m with Frozen as covariate
+fm03 = glm(DiversityClass ~ Eczema3m + Frozen, data=dfData, family=binomial)
+Anova(fm03)
+summary(fm03)
+
+
+
 ## you can calculate these odds ratios manually from contingency table
 t = xtabs(~ DiversityClass + Frozen, data=dfData)
 t

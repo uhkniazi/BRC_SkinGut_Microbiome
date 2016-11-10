@@ -15,4 +15,6 @@ Scripts in no particular order.
 ..* Model the eczema diversity at 12 months, and look at the associations of any covariates in a logistic regression model. Model the change from 3 months eczema status to 12 months as a multinomial distribution and binomial distribution and report the significant covariates.  
 4. **diversity_high_group.R**  
 ..* Testing for covariates that show significant relationship with diversity high and low groups - nothing really important here.  
+5. **diversity_report.R**  
+..* multiple regression analysis for diversity at 3 months.  
 
