@@ -65,7 +65,7 @@ se = sqrt(abs(0.28 - (1-0.28))/261)
 ## download the ccrossvalidation class to select variables of importance
 if(!require(downloader) || !require(methods)) stop('Library downloader and methods required')
 
-url = 'https://raw.githubusercontent.com/uhkniazi/CCrossValidation/master/CCrossValidation.R'
+url = 'https://raw.githubusercontent.com/uhkniazi/CCrossValidation/experimental/CCrossValidation.R'
 download(url, 'CCrossValidation.R')
 
 # load the required packages
@@ -218,6 +218,47 @@ p1 = paste(rownames(s), c, s.e, p, o, sep=',')
 writeLines(p1, oFile)
 writeLines('\n\n', oFile)
 close(oFile)
+
+## repeat with just univariate results
+df = dfData
+str(df)
+
+fm03.s = glm(Eczema12m ~ 1 + Scorad_cv3m, data=df, family=binomial)
+summary(fm03.s)
+exp(coef(fm03.s))
+
+fm03.s = glm(Eczema12m ~ 1 + ige009.3m, data=df, family=binomial)
+summary(fm03.s)
+exp(coef(fm03.s))
+
+df = na.omit(dfData[,c('Eczema12m', 'Scorad_cv3m')])
+str(df)
+
+oCV = CCrossValidation.LDA(test.dat = data.frame(g=df[,-1]), train.dat = data.frame(g=df[,-1]), test.groups = df$Eczema12m,
+                           train.groups = df$Eczema12m, level.predict = 'Yes', boot.num = 100, k.fold = 10)
+
+plot.cv.performance(oCV)
+
+str(dfData)
+df = na.omit(dfData[,c('Eczema12m', 'ige009.3m')])
+str(df)
+
+oCV = CCrossValidation.LDA(test.dat = data.frame(g=df[,-1]), train.dat = data.frame(g=df[,-1]), test.groups = df$Eczema12m,
+                           train.groups = df$Eczema12m, level.predict = 'Yes', boot.num = 100, k.fold = 10)
+
+plot.cv.performance(oCV)
+
+str(dfData)
+df = na.omit(dfData[,-3])
+str(df)
+
+oCV = CCrossValidation.LDA(test.dat = df[,-1], train.dat = df[,-1], test.groups = df$Eczema12m,
+                           train.groups = df$Eczema12m, level.predict = 'Yes', boot.num = 100, k.fold = 10)
+
+plot.cv.performance(oCV)
+
+
+
 
 
 ## try multinomial regression before binomial
