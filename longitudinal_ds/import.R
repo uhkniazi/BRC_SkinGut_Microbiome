@@ -47,6 +47,59 @@ dfData = dfData[,-c(16:18)]
 str(dfData)
 summary(dfData)
 
+## import the 3 month new dataset and merge
+dfData.3m = read.csv(file.choose(), header=T)
+## match the data ids
+i = match(dfData$id, dfData.3m$id)
+
+rt = dfData.3m$dayssampleatroomtemperature[i]
+dfData$SampleAtRoomTemp[dfData$age==3] = rt[dfData$age==3]
+
+## other covariates
+dfData$eczema3m = dfData.3m$exam3mecz[i]
+dfData$eczema12m = dfData.3m$exam12mecz[i]
+dfData$foodallergy = dfData.3m$foodallergy[i]
+dfData$peanutallergy = dfData.3m$peanutallergy[i]
+dfData$eggallergy = dfData.3m$eggallergy[i]
+dfData$ige009at3m = dfData.3m$ige009at3m[i]
+dfData$ige035at12m = dfData.3m$ige035at12m[i]
+dfData$ige035at36m = dfData.3m$ige035at36m[i]
+dfData$Frozen3m = factor(ifelse(dfData.3m$frozen1yes[i] == 1, 'Yes', 'No'))
+wt = dfData.3m$weight_cv3m[i]
+dfData$Weight = NA
+dfData$Weight[dfData$age == 3] = wt[dfData$age == 3]
+wt = dfData.3m$weight_cv12m[i]
+dfData$Weight[dfData$age == 12] = wt[dfData$age == 12]
+dfData$Weight36m = dfData.3m$weight_cv36m[i]
+dfData$BMI36m = dfData.3m$bmi_cv36m[i]
+dfData$Sex = dfData.3m$male_cv3m[i]
+dfData$homeMould3m = dfData.3m$homemould_q3mgen[i]
+dfData$diarrhea3m = dfData.3m$anydiarrdays3m[i]
+dfData$respInfections3m = dfData.3m$numrespinf3m[i]
+
+
+## import the second 3month dataset with additional covariates
+dfData.3m = read.csv(file.choose(), header=T, sep='\t')
+head(dfData.3m)
+str(dfData.3m)
+## match the data ids
+i = match(dfData$id, dfData.3m$id)
+
+dfData$MotherAge = dfData.3m$MotherAge[i]
+dfData$diarrhea12m = dfData.3m$diarrhea12m[i]
+dfData$ParentSmoke = dfData.3m$ParentSmoke[i]
+dfData$ParentEczema = dfData.3m$ParentEczema[i]
+dfData$MotherEducation = dfData.3m$MotherEducation[i]
+dfData$FatherEducation = dfData.3m$FatherEducation[i]
+# create a longitudinal version of diarrhea variable
+dia = rep(NA, length=nrow(dfData))
+dia[dfData$age == 3] = ifelse(dfData$diarrhea3m[dfData$age == 3] == 'Yes', 'Yes', 'No')
+dia[dfData$age == 12] = ifelse(dfData$diarrhea12m[dfData$age == 12] == 'Yes', 'Yes', 'No')
+dfData$diarrhea = factor(dia)
+
+## save this data 
+write.csv(dfData, file='longitudinal_ds/Data_external/longitudinal_dataset_manual_UN_2.csv')
+
 oFile = file('longitudinal_ds/Results/data_summary.txt', 'wt')
 p1 = c('||', paste(colnames(dfData), ' ||', sep=''))
 writeLines(paste(p1, collapse = ''), oFile)
@@ -65,7 +118,30 @@ f_print_summary = function(df){
          f_paste_factor(df$Caesarean), f_paste_factor(df$NonCaucasian), format(mean(df$NumSiblings3m, na.rm = T), digits = 3), 
          f_paste_factor(df$Childminder12m), format(mean(df$SampleAtRoomTemp, na.rm = T), digits = 3), 
          f_paste_factor(df$OralABweek), f_paste_factor(df$OralABmonth), format(mean(df$FirstTooth, na.rm = T), digits = 3),
-         f_paste_factor(df$sterlise)
+         f_paste_factor(df$sterlise),
+         f_paste_factor(df$eczema3m),
+         f_paste_factor(df$eczema12m),
+         f_paste_factor(df$foodallergy),
+         f_paste_factor(df$peanutallergy),
+         f_paste_factor(df$eggallergy),
+         f_paste_factor(df$ige009at3m),
+         f_paste_factor(df$ige035at12m),
+         f_paste_factor(df$ige035at36m),
+         f_paste_factor(df$Frozen3m),
+         format(mean(df$Weight, na.rm = T), digits=3),
+         format(mean(df$Weight36m, na.rm = T), digits=3),
+         format(mean(df$BMI36m, na.rm = T), digits=3),
+         f_paste_factor(df$Sex),
+         f_paste_factor(df$homeMould3m),
+         f_paste_factor(df$diarrhea3m),
+         format(mean(df$respInfections3m, na.rm = T), digits=3),
+         format(mean(df$MotherAge, na.rm = T), digits=3),
+         f_paste_factor(df$diarrhea12m),
+         f_paste_factor(df$ParentSmoke),
+         f_paste_factor(df$ParentEczema),
+         f_paste_factor(df$MotherEducation),
+         f_paste_factor(df$FatherEducation),
+         f_paste_factor(df$diarrhea)
          ) 
   p2 = paste(c('||', paste(p2, '||', sep='', collapse = '')), collapse = '')
   return(p2)
@@ -76,17 +152,97 @@ writeLines(f_print_summary(dfData[dfData$age == 5,]), oFile)
 writeLines(f_print_summary(dfData[dfData$age == 12,]), oFile)
 close(oFile)
 
-write.csv(dfData, file='longitudinal_ds/Data_external/longitudinal_dataset_manual_UN_2.csv')
-
 
 library(lattice)
 library(MASS)
 library(car)
+library(lme4)
+library(lmerTest)
 hist(dfData$shannonmean)
 fitdistr(dfData$shannonmean, 'normal')
 qqp(dfData$shannonmean, 'norm', mean=3.4, sd=0.94, ylab='Shannon diversity')
 qqPlot(dfData$shannonmean, 'norm',ylab='Shannon diversity')
 
+### trying model fits with covariates
+# model with just random intercept
+fm01 = lmer(shannonmean ~ 1 + (1 | id), data=dfData, REML=F)
+summary(fm01)
+fm01.cor = update(fm01, shannonmean ~ 1 + (1 + age | id))
+summary(fm01.cor)
+# compare the 2 models
+anova(fm01, fm01.cor)
+
+# try uncorrelated random effects
+fm01.uncor = update(fm01, shannonmean ~ 1 + (1 | id) + (0 + age | id))
+summary(fm01.uncor)
+# compare 3 models
+anova(fm01.uncor, fm01.cor, fm01 )
+
+## choose the model with correlated intercept and slope
+fm01 = fm01.cor
+
+## update this model with one covariate after adding time
+fm02 = update(fm01, shannonmean ~ 1 + age + (1 + age | id))
+summary(fm02)
+anova(fm01, fm02)
+fm00 = update(fm01, shannonmean ~ 1 + (1 + age | id))
+fm01 = update(fm01, shannonmean ~ 1 + age + (1 + age | id))
+fm02 = update(fm01, shannonmean ~ 1 + age + interventiongroup + (1 + age | id))
+fm03 = update(fm01, shannonmean ~ 1 + age*interventiongroup + (1 + age | id))
+anova(fm00, fm01, fm02, fm03)
+
+# fit the model with lmer test to get p-values for coefficients
+fm = lmerTest::lmer(shannonmean ~ 1 + age*interventiongroup + (1 + age | id), data=dfData)
+summary(fm)
+
+## fit a model with each covariate 
+f_get.coef.pvalue = function(fit){
+  s = summary(fit)
+  return(s$coefficients[,'Pr(>|t|)'])
+}
+
+f_get.coef.estimate = function(fit){
+  s = summary(fit)
+  return(s$coefficients[,'Estimate'])
+}
+
+cvCov = colnames(dfData)[6:42]
+
+lFits = sapply(cvCov, function(x){
+  print(x)
+  df = dfData[,c('id', 'age', 'shannonmean', x)]
+  cvFormula = paste('shannonmean ~ 1 + ', x,' + (1 + age | id)', sep='')
+  tryCatch(expr = lmerTest::lmer(cvFormula, data=df, REML=F), error=function(e) NULL) 
+  #return(lmerTest::lmer(cvFormula, data=df, REML=F))
+})
+
+## which models did not fit
+bNotFit = sapply(lFits, is.null)
+which(bNotFit)
+lFits = lFits[!bNotFit]
+
+lPVals = lapply(lFits, f_get.coef.pvalue)
+lCoef = lapply(lFits, f_get.coef.estimate)
+
+## create a file with the results
+oFile = file('longitudinal_ds/Results/univariate_summary.txt', 'wt')
+p1 = c('||', 'Covariate || Coefficient || P-Value', ' ||', sep='')
+writeLines(paste(p1, collapse = ''), oFile)
+
+for(i in 1:length(lPVals)){
+  pv = lPVals[[i]][-1]
+  co = lCoef[[i]][-1]
+  # check length and print as some may have multiple levels
+  for (l in 1:length(pv)){
+    p2 = paste('||', names(lPVals)[i], ' ', names(pv)[l], '||', round(co[l], 3), '||', round(pv[l], 3), '||', sep='')
+    writeLines(p2, oFile)
+  }
+}
+
+close(oFile)
+
+
+#### section with lattice plots
 dfData.bk = dfData
 # sort on age for plotting
 dfData = dfData[order(dfData$age),]
