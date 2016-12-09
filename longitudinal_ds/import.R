@@ -8,97 +8,18 @@ dfImport = read.csv(file.choose(), header=T)
 
 str(dfImport)
 head(dfImport)
+dim(dfImport)
 
 # setup data
 dfData = dfImport
 dfData$age = as.numeric(gsub('m', '', dfData$age))
 rownames(dfData) = dfImport$samples
 dfData$samples = factor(dfData$samples)
-dfData$OralABweek = factor(dfData$OralABweek)
-dfData$OralABmonth = factor(dfData$OralABmonth)
 
 str(dfData)
 
-# merge the 3 columns into one
-df = data.frame(m3=dfImport$currentlysterilise3months, 
-                m5=dfImport$currentlysterilise5months, 
-                m12=dfImport$currentlysterilise12months, 
-                age=dfData$age, 
-                id=dfData$id)
-
-fm = function(df){
-  id = as.character(df$id)
-  v = rep(NA, length.out=length(id))
-  names(v) = id
-  for (i in 1:length(id)){
-    a = df$age[i]
-    am = paste0('m',a)
-    v[i] = ifelse(df[i,am] == '', NA, as.character(df[i,am]))
-  }
-  return(v)
-}
-
-dfData$sterlise = fm(df)
-dfData$sterlise = factor(dfData$sterlise)
-
-# drop the sterlize columns as they have been merged
-as.data.frame(colnames(dfData))
-dfData = dfData[,-c(16:18)]
-str(dfData)
-summary(dfData)
-
-## import the 3 month new dataset and merge
-dfData.3m = read.csv(file.choose(), header=T)
-## match the data ids
-i = match(dfData$id, dfData.3m$id)
-
-rt = dfData.3m$dayssampleatroomtemperature[i]
-dfData$SampleAtRoomTemp[dfData$age==3] = rt[dfData$age==3]
-
-## other covariates
-dfData$eczema3m = dfData.3m$exam3mecz[i]
-dfData$eczema12m = dfData.3m$exam12mecz[i]
-dfData$foodallergy = dfData.3m$foodallergy[i]
-dfData$peanutallergy = dfData.3m$peanutallergy[i]
-dfData$eggallergy = dfData.3m$eggallergy[i]
-dfData$ige009at3m = dfData.3m$ige009at3m[i]
-dfData$ige035at12m = dfData.3m$ige035at12m[i]
-dfData$ige035at36m = dfData.3m$ige035at36m[i]
-dfData$Frozen3m = factor(ifelse(dfData.3m$frozen1yes[i] == 1, 'Yes', 'No'))
-wt = dfData.3m$weight_cv3m[i]
-dfData$Weight = NA
-dfData$Weight[dfData$age == 3] = wt[dfData$age == 3]
-wt = dfData.3m$weight_cv12m[i]
-dfData$Weight[dfData$age == 12] = wt[dfData$age == 12]
-dfData$Weight36m = dfData.3m$weight_cv36m[i]
-dfData$BMI36m = dfData.3m$bmi_cv36m[i]
-dfData$Sex = dfData.3m$male_cv3m[i]
-dfData$homeMould3m = dfData.3m$homemould_q3mgen[i]
-dfData$diarrhea3m = dfData.3m$anydiarrdays3m[i]
-dfData$respInfections3m = dfData.3m$numrespinf3m[i]
-
-
-## import the second 3month dataset with additional covariates
-dfData.3m = read.csv(file.choose(), header=T, sep='\t')
-head(dfData.3m)
-str(dfData.3m)
-## match the data ids
-i = match(dfData$id, dfData.3m$id)
-
-dfData$MotherAge = dfData.3m$MotherAge[i]
-dfData$diarrhea12m = dfData.3m$diarrhea12m[i]
-dfData$ParentSmoke = dfData.3m$ParentSmoke[i]
-dfData$ParentEczema = dfData.3m$ParentEczema[i]
-dfData$MotherEducation = dfData.3m$MotherEducation[i]
-dfData$FatherEducation = dfData.3m$FatherEducation[i]
-# create a longitudinal version of diarrhea variable
-dia = rep(NA, length=nrow(dfData))
-dia[dfData$age == 3] = ifelse(dfData$diarrhea3m[dfData$age == 3] == 'Yes', 'Yes', 'No')
-dia[dfData$age == 12] = ifelse(dfData$diarrhea12m[dfData$age == 12] == 'Yes', 'Yes', 'No')
-dfData$diarrhea = factor(dia)
-
-## save this data 
-write.csv(dfData, file='longitudinal_ds/Data_external/longitudinal_dataset_manual_UN_2.csv')
+which(colnames(dfData) == 'faecalsamplepassingdate')
+dfData = dfData[,-52]
 
 oFile = file('longitudinal_ds/Results/data_summary.txt', 'wt')
 p1 = c('||', paste(colnames(dfData), ' ||', sep=''))
@@ -110,39 +31,16 @@ f_paste_factor = function(f){
   return(p)
 }
 
+f_paste_other = function(f){
+  return(format(mean(f, na.rm = T), digits = 3))
+}
+
 ## print the information for each time point
 f_print_summary = function(df){
-  p2 = c(format(length(df$id)), format(unique(df$age)), format(length(df$samples)), format(mean(df$shannonmean, na.rm = T), digits = 3), 
-         format(mean(df$chaomean, na.rm = T), digits = 3), f_paste_factor(df$rural_q3mgen), f_paste_factor(df$catOrDog3m),
-         format(mean(df$catsOwned3m), digits = 3), format(mean(df$dogsOwned3m, na.rm = T), digits = 3), f_paste_factor(df$interventiongroup),
-         f_paste_factor(df$Caesarean), f_paste_factor(df$NonCaucasian), format(mean(df$NumSiblings3m, na.rm = T), digits = 3), 
-         f_paste_factor(df$Childminder12m), format(mean(df$SampleAtRoomTemp, na.rm = T), digits = 3), 
-         f_paste_factor(df$OralABweek), f_paste_factor(df$OralABmonth), format(mean(df$FirstTooth, na.rm = T), digits = 3),
-         f_paste_factor(df$sterlise),
-         f_paste_factor(df$eczema3m),
-         f_paste_factor(df$eczema12m),
-         f_paste_factor(df$foodallergy),
-         f_paste_factor(df$peanutallergy),
-         f_paste_factor(df$eggallergy),
-         f_paste_factor(df$ige009at3m),
-         f_paste_factor(df$ige035at12m),
-         f_paste_factor(df$ige035at36m),
-         f_paste_factor(df$Frozen3m),
-         format(mean(df$Weight, na.rm = T), digits=3),
-         format(mean(df$Weight36m, na.rm = T), digits=3),
-         format(mean(df$BMI36m, na.rm = T), digits=3),
-         f_paste_factor(df$Sex),
-         f_paste_factor(df$homeMould3m),
-         f_paste_factor(df$diarrhea3m),
-         format(mean(df$respInfections3m, na.rm = T), digits=3),
-         format(mean(df$MotherAge, na.rm = T), digits=3),
-         f_paste_factor(df$diarrhea12m),
-         f_paste_factor(df$ParentSmoke),
-         f_paste_factor(df$ParentEczema),
-         f_paste_factor(df$MotherEducation),
-         f_paste_factor(df$FatherEducation),
-         f_paste_factor(df$diarrhea)
-         ) 
+  cn = colnames(df)
+  cn = cn[4:length(cn)]
+  p2 = lapply(cn, function(x) ifelse(is.factor(df[,x]), f_paste_factor(df[,x]), f_paste_other(df[,x])))
+  p2 = c(format(length(df$id)), format(unique(df$age)), format(length(df$samples)), do.call(c, p2)) 
   p2 = paste(c('||', paste(p2, '||', sep='', collapse = '')), collapse = '')
   return(p2)
 }
