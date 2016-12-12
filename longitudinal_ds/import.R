@@ -18,8 +18,9 @@ dfData$samples = factor(dfData$samples)
 
 str(dfData)
 
-which(colnames(dfData) == 'faecalsamplepassingdate')
-dfData = dfData[,-52]
+ids = which(duplicated(as.character(dfData$id)))
+ids = unique(as.character(dfData$id[ids]))
+dfData = dfData[dfData$id %in% ids,]
 
 oFile = file('longitudinal_ds/Results/data_summary.txt', 'wt')
 p1 = c('||', paste(colnames(dfData), ' ||', sep=''))
@@ -54,7 +55,7 @@ close(oFile)
 library(lattice)
 library(MASS)
 library(car)
-library(lme4)
+#library(lme4)
 library(lmerTest)
 hist(dfData$shannonmean)
 fitdistr(dfData$shannonmean, 'normal')
@@ -104,13 +105,13 @@ f_get.coef.estimate = function(fit){
   return(s$coefficients[,'Estimate'])
 }
 
-cvCov = colnames(dfData)[6:42]
+cvCov = colnames(dfData)[4:214]
 
 lFits = sapply(cvCov, function(x){
   print(x)
   df = dfData[,c('id', 'age', 'shannonmean', x)]
   cvFormula = paste('shannonmean ~ 1 + ', x,' + (1 + age | id)', sep='')
-  tryCatch(expr = lmerTest::lmer(cvFormula, data=df, REML=F), error=function(e) NULL) 
+  tryCatch(expr = lmerTest::lmer(cvFormula, data=df, REML=T), error=function(e) NULL) 
   #return(lmerTest::lmer(cvFormula, data=df, REML=F))
 })
 
@@ -119,8 +120,8 @@ bNotFit = sapply(lFits, is.null)
 which(bNotFit)
 lFits = lFits[!bNotFit]
 
-lPVals = lapply(lFits, f_get.coef.pvalue)
-lCoef = lapply(lFits, f_get.coef.estimate)
+lPVals = lapply(lFits, function(x) tryCatch(expr = f_get.coef.pvalue(x), error=function(e) f_get.coef.estimate(x)))
+lCoef = lapply(lFits, function(x) tryCatch(expr = f_get.coef.estimate(x), error=function(e) NULL))
 
 ## create a file with the results
 oFile = file('longitudinal_ds/Results/univariate_summary.txt', 'wt')
