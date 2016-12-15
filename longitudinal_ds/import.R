@@ -1,7 +1,7 @@
 # Name: import.R
 # Auth: umar.niazi@kcl.ac.uk
 # Date: 31/10/2016
-# Desc: import the longitudinal dataset and cleanup
+# Desc: import the merged data set and extract longitudinal data to make some plots and summaries
 
 
 dfImport = read.csv(file.choose(), header=T)
@@ -18,6 +18,7 @@ dfData$samples = factor(dfData$samples)
 
 str(dfData)
 
+## extract repeated samples
 ids = which(duplicated(as.character(dfData$id)))
 ids = unique(as.character(dfData$id[ids]))
 dfData = dfData[dfData$id %in% ids,]
