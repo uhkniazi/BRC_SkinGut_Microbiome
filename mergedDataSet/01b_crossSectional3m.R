@@ -277,14 +277,11 @@ xyplot(Chao ~ eczema3m+ifelse(abxMonth == 'Yes', 'AB Yes', 'AB No') | ifelse(fro
 #############################################################
 ## MCMC RStan
 
-getStanSummary = function(obj){
-  return(apply(extract(obj)$beta, 2, sd))
-}
 getStanSD = function(obj){
-  return(apply(extract(obj)$beta, 2, sd))
+  return(apply(extract(obj)$betas, 2, sd))
 }
 getStanMean = function(obj){
-  return(apply(extract(obj)$beta, 2, mean))
+  return(apply(extract(obj)$betas, 2, mean))
 }
 getStanPValue = function(obj){
   pnorm(-abs(getStanMean(obj)/getStanSD(obj)))*2
@@ -295,10 +292,14 @@ stanDso = rstan::stan_model(file='mergedDataSet/robustRegressionT.stan')
 
 ## prepare data for input
 mModMatrix = model.matrix(weight ~ height, data=dfData)
-lStanData = list(Ntotal=nrow(mModMatrix), Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData$weight)
+lStanData = list(Ntotal=nrow(mModMatrix), Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData$weight, meanY=mean(dfData$weight), 
+                 sdY=sd(dfData$weight))
 
-fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=4)
+fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=4, pars=c('betas', 'nu', 'sigma'))
 print(fit.stan)
+
+getStanMean(fit.stan)
+getStanSD(fit.stan)
 
 
 #############################################################
