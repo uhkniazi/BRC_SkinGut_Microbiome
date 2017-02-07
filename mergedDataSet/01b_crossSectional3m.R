@@ -149,7 +149,7 @@ dfUnivariate$Significant = Sig
 colnames(dfUnivariate) = c('P-Value', 'Significant')
 
 dir.create('mergedDataSet/Temp')
-write.csv(dfUnivariate, file='mergedDataSet/Temp/uni.csv')
+#write.csv(dfUnivariate, file='mergedDataSet/Temp/uni.csv')
 
 lapply(lFm[Sig == 'Yes'], summary)
 
@@ -181,7 +181,7 @@ Sig = ifelse(m < 0.05, 'Yes', 'No')
 dfUnivariate$Significant = Sig
 colnames(dfUnivariate) = c('P-Value', 'Significant')
 
-write.csv(dfUnivariate, file='mergedDataSet/Temp/bivariate.csv')
+#write.csv(dfUnivariate, file='mergedDataSet/Temp/bivariate.csv')
 
 lapply(lFm[Sig == 'Yes'], summary)
 
@@ -212,7 +212,7 @@ colnames(dfUnivariate) = c('Frozen', 'Covariate-pvalue', 'Interaction-pvalue')
 Sig = ifelse(m[3,] < 0.05, 'Yes', 'No')
 dfUnivariate$Significant = Sig
 
-write.csv(dfUnivariate, file='mergedDataSet/Temp/bivariate_interaction.csv')
+#write.csv(dfUnivariate, file='mergedDataSet/Temp/bivariate_interaction.csv')
 
 lapply(lFm[Sig == 'Yes'], summary)
 
@@ -231,7 +231,7 @@ s = Anova(fm01)
 df = data.frame(s)
 dfMultivariate = data.frame(PValue=round(df$Pr..Chisq., 3))
 rownames(dfMultivariate) = rownames(df)
-write.csv(dfMultivariate, file='mergedDataSet/Temp/multivariate.csv')
+#write.csv(dfMultivariate, file='mergedDataSet/Temp/multivariate.csv')
 
 ## keep only the interesting covariates based on univariate and multivariate results
 fm01.a = glm(Chao ~ eczema3m*frozen + daysOldAtSample + dogOrCat + parentEczema + siblings +
@@ -244,7 +244,7 @@ s = Anova(fm01.a)
 df = data.frame(s)
 dfMultivariate = data.frame(PValue=round(df$Pr..Chisq., 3))
 rownames(dfMultivariate) = rownames(df)
-write.csv(dfMultivariate, file='mergedDataSet/Temp/multivariate_submodel.csv')
+#write.csv(dfMultivariate, file='mergedDataSet/Temp/multivariate_submodel.csv')
 ## subset model further 
 fm01.b = glm(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData, family=Gamma(link='log'))
 
@@ -291,15 +291,20 @@ library(rstan)
 stanDso = rstan::stan_model(file='mergedDataSet/robustRegressionT.stan')
 
 ## prepare data for input
-mModMatrix = model.matrix(weight ~ height, data=dfData)
-lStanData = list(Ntotal=nrow(mModMatrix), Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData$weight, meanY=mean(dfData$weight), 
-                 sdY=sd(dfData$weight))
+dfData.full = dfData
+dfData = dfData.full[,c('Chao', 'eczema3m', 'frozen', 'diarrhoeaCategorical3m', 'abxMonth')]
+dfData = na.omit(dfData)
+mModMatrix = model.matrix(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData)
+lStanData = list(Ntotal=nrow(mModMatrix), Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData$Chao, meanY=mean(dfData$Chao), 
+                 sdY=sd(dfData$Chao))
 
 fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=4, pars=c('betas', 'nu', 'sigma'))
 print(fit.stan)
 
 getStanMean(fit.stan)
 getStanSD(fit.stan)
+round(getStanPValue(fit.stan), 3)
+summary(lm(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData))
 
 
 #############################################################
