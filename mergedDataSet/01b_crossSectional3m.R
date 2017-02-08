@@ -298,21 +298,25 @@ mModMatrix = model.matrix(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxM
 lStanData = list(Ntotal=nrow(mModMatrix), Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData$Chao, meanY=mean(dfData$Chao), 
                  sdY=sd(dfData$Chao))
 
-fit.stan = sampling(stanDso, data=lStanData, iter=5000, chains=4, pars=c('betas', 'nu', 'sigma'))
+fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=4, pars=c('betas', 'nu', 'sigma'))
 print(fit.stan)
 
 getStanMean(fit.stan)
 getStanSD(fit.stan)
 round(getStanPValue(fit.stan), 3)
-summary(lm(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData))
-
+#summary(lm(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData))
+## use a heavy tailed distribution
+library(heavy)
+hfit = heavyLm(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData, family=Student(df=3))
+summary(hfit)
 
 #############################################################
-## try a bayesian approach for this 
+## try another bayesian approach for this 
+library(LearnBayes)
 mylogpost = function(theta, data){
   nu = exp(theta['nu']) ## normality parameter for t distribution
   sigma = exp(theta['sigma']) # scale parameter for t distribution
-  betas = theta[3:4] # vector of betas i.e. regression coefficients
+  betas = theta[-c(1:2)] # vector of betas i.e. regression coefficients
   dfData = data$dfData # predictors and response 
   # function to use to use scale parameter
   ## see here https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
@@ -322,34 +326,72 @@ mylogpost = function(theta, data){
     return(log(dt_ls(dat, nu, pred, sigma)))
   }
   # the predicted value
-  mModMatrix = model.matrix(y ~ ., data=dfData)
+  mModMatrix = model.matrix(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth, data=dfData)
   mu = mModMatrix %*% betas ## link is identity
   # likelihood function
-  val = sum(lf(dfData$y, mu))
+  val = sum(lf(dfData$Chao, mu))
   val = val + dexp(nu, 1/29, log = T) + dunif(sigma, 1, 1e+4, log = T)
   return(val)
 }
 
-mylogpost.inv = function(theta, data){return(1/mylogpost(theta, data))}
-start = c('nu'=1, 'sigma'=1, 'betas'=c(1, 1))
-nlm(mylogpost.inv, start, lData)
-
-## load some data and libraries
-library(LearnBayes)
-dfData = read.csv(file.choose(), header=T)
-
-## prepare input data
-lData = list('dfData'=data.frame(y=dfData$weight, height=dfData$height))
-# starting values
-f = lm(y ~ height, data=lData$dfData)
-start = c('nu'=0, 'sigma'=log(sd(lData$dfData$y)), 'betas'=coef(f))
-summary(f)
+#mylogpost.inv = function(theta, data){return(1/mylogpost(theta, data))}
+fitdistr(dfData$Chao, densfun = 't')
+ivBetas = coef(lm(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData))
+start = c('nu'=log(2), 'sigma'=log(119), 'betas'=ivBetas)
+lData = list('dfData'=dfData)
+#nlm(mylogpost.inv, start, lData)
 mylogpost(start, lData)
+## get starting values
+op = optim(start, mylogpost, control = list(fnscale = -1, maxit=10000), data=lData)
+op
+start = op$par
 fit = laplace(mylogpost, start, lData)
 fit
+## redefine laplace to take iterations
+mylaplace = function (logpost, mode, ...) 
+{
+  options(warn = -1)
+  fit = optim(mode, logpost, gr = NULL, ..., hessian = TRUE, 
+              control = list(fnscale = -1, maxit=10000))
+  options(warn = 0)
+  mode = fit$par
+  h = -solve(fit$hessian)
+  p = length(mode)
+  int = p/2 * log(2 * pi) + 0.5 * log(det(h)) + logpost(mode, 
+                                                        ...)
+  stuff = list(mode = mode, var = h, int = int, converge = fit$convergence == 
+                 0)
+  return(stuff)
+}
+
+fit = mylaplace(mylogpost, start, lData)
+fit
+
 fit$mode
 se = sqrt(diag(fit$var))
 round(pnorm(-abs(fit$mode/se))*2,3)
+exp(fit$mode['nu'])
+exp(fit$mode['sigma'])
+
+# 
+# 
+# 
+# ## load some data and libraries
+# library(LearnBayes)
+# dfData = read.csv(file.choose(), header=T)
+# 
+# ## prepare input data
+# lData = list('dfData'=data.frame(y=dfData$weight, height=dfData$height))
+# # starting values
+# f = lm(y ~ height, data=lData$dfData)
+# start = c('nu'=0, 'sigma'=log(sd(lData$dfData$y)), 'betas'=coef(f))
+# summary(f)
+# mylogpost(start, lData)
+# fit = laplace(mylogpost, start, lData)
+# fit
+# fit$mode
+# se = sqrt(diag(fit$var))
+# round(pnorm(-abs(fit$mode/se))*2,3)
 
 # mylogpost = function(theta, data){
 #   #nu = exp(theta['nu']) ## normality parameter for t distribution

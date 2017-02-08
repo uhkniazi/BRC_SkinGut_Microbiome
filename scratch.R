@@ -59,3 +59,19 @@ autocorr.diag(mc)
 autocorr.diag(mc2)
 effectiveSize(mc)
 effectiveSize(mc2)
+
+#################################################
+t = dfData$Chao
+h = hist(t, plot=F)
+dn = dt_ls(h$mids, df = 2.5, mu = 403, a = 118)
+# which distribution can approximate the frequency
+hist(t, prob=T, xlab='Shannon Diversity', ylab='', main='Distribution of Shannon Diversity in Disease')
+# parameterized on the means
+lines(h$mids, dn, col='black', type='b')
+#points(qnorm(0.95, mean(t), sd(t)), 0, pch=20, col='red', cex=2)
+legend('topright', legend =c('Normal Density Curve'), fill = c('black'))
+
+library(heavy)
+hfit = heavyLm(Chao ~ eczema3m*frozen + diarrhoeaCategorical3m + abxMonth , data=dfData, family=Student(df=2.95))
+summary(hfit)
+
