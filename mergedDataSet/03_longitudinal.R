@@ -198,24 +198,50 @@ colnames(dfUnivariate) = c('P-Value', 'Significant')
 dir.create('mergedDataSet/Temp')
 write.csv(dfUnivariate, file='mergedDataSet/Temp/uni.csv')
 
+cvCov = rownames(dfUnivariate[dfUnivariate$Significant == 'Yes',])
 
-## create a file with the results
-oFile = file('longitudinal_ds/Results/univariate_summary.txt', 'wt')
-p1 = c('||', 'Covariate || Coefficient || P-Value', ' ||', sep='')
-writeLines(paste(p1, collapse = ''), oFile)
-
-for(i in 1:length(lPVals)){
-  pv = lPVals[[i]][-1]
-  co = lCoef[[i]][-1]
-  # check length and print as some may have multiple levels
-  for (l in 1:length(pv)){
-    p2 = paste('||', names(lPVals)[i], ' ', names(pv)[l], '||', round(co[l], 3), '||', round(pv[l], 3), '||', sep='')
-    writeLines(p2, oFile)
-  }
+for(i in seq_along(cvCov)){
+  x = cvCov[i]
+  cat('=========\n')
+  df = dfData[,c('id', 'age', 'shannonmean', x)]
+  cvFormula = paste('shannonmean ~ 1 + ', x,' + (1 + age | id)', sep='')
+  print(summary(lmerTest::lmer(cvFormula, data=df, REML=T)))
+  cat('=========\n\n')
 }
 
-close(oFile)
+### multivariate with all covariates
+which(colnames(dfData) %in% 'abxWeek')
+dfData = dfData[,-28]
+dfData$abxMonth = factor(ifelse(dfData$abxMonth == 1, 'Yes', 'No'))
+dfData$abx3Months = factor(ifelse(dfData$abx3Months == 1, 'Yes', 'No'))
 
+fm01 = lmerTest::lmer(shannonmean ~ 1 + age + intervention +
+                    (1 + age | id), data=dfData)
+summary(fm01)
+
+fm02 = lmerTest::lmer(shannonmean ~ 1 + age + intervention + 
+                        daysRoomTemp + 
+                        (1 + age | id), data=dfData)
+
+fm03 = lmerTest::lmer(shannonmean ~ 1 + age + intervention + 
+                        daysRoomTemp + diet6FoodsAtSample +
+                        (1 + age | id), data=dfData)
+
+fm04 = lmerTest::lmer(shannonmean ~ 1 + age + intervention + 
+                        daysRoomTemp + diet6FoodsAtSample + dietDiversityAtSample +
+                        (1 + age | id), data=dfData)
+## diet variables are correlated with age and including them makes 
+## coefficients unstable
+summary(lmerTest::lmer(shannonmean ~ 1 + age + intervention + 
+                        daysRoomTemp + caesarean + sibling3m + frozen +abxMonth +
+                        (1 + age | id), data=dfData))
+
+fm.mv = lmerTest::lmer(shannonmean ~ 1 + age + intervention + 
+                         daysRoomTemp + caesarean + sibling3m + frozen +abxMonth +
+                         (1 + age | id), data=dfData)
+
+Anova(fm.mv)
+anova(fm.mv, test='Chisq')
 
 #### section with lattice plots
 dfData.bk = dfData
