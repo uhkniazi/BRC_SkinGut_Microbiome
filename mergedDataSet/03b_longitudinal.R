@@ -249,6 +249,264 @@ fm.mv = glmer(chaomean ~ 1 + age + intervention +
 Anova(fm.mv)
 anova(fm.mv, test='Chisq')
 
+
+
+###########################################################################################################################
+########################## custom regression functions - just playing around
+## custom optimiser
+library(LearnBayes)
+library(numDeriv)
+library(MASS)
+
+mylaplace = function (logpost, mode, data) 
+{
+  options(warn = -1)
+  fit = optim(mode, logpost, gr = NULL,  
+              control = list(fnscale = -1, maxit=1000), method='CG', data=data)
+  # calculate hessian
+  fit$hessian = (hessian(logpost, fit$par, data=data))
+  colnames(fit$hessian) = names(mode)
+  rownames(fit$hessian) = names(mode)
+  options(warn = 0)
+  mode = fit$par
+  h = -solve(fit$hessian)
+  stuff = list(mode = mode, var = h, converge = fit$convergence == 
+                 0)
+  return(stuff)
+}
+
+######### add a custom random effects model with gamma response and log link
+# myloglike = function(theta, data){
+#   ## parameters to track/estimate
+#   sigmaPop = exp(theta['sigmaPop'])
+#   sigmaRan = exp(theta['sigmaRan'])
+#   betas = theta[3:4] # vector of betas i.e. regression coefficients for population
+#   #iGroupsJitter = theta[-c(1:4)]
+#   ## data
+#   dfData = data$dfData # predictors and response
+#   ## likelihood function
+#   lf = function(dat, fitted){
+#     alpha = (fitted^2)/sigmaPop
+#     beta = fitted/sigmaPop
+#     return(log(dgamma(dat, shape = alpha, rate = beta)))
+#   }
+#   ## random effect jitter for the population intercept
+#   ## how many groups
+#   iGroupsCount = unique(dfData$groupIndex)
+#   # each group contributes a jitter centered on 0
+#   iGroupsJitter = rnorm(iGroupsCount, 0, sigmaRan)
+#   # population slope + random jitter
+#   ivBetaRand = betas[1] + iGroupsJitter
+#   # create model matrix
+#   mModMatrix = model.matrix(chaomean ~ 1+age, data=dfData)
+#   # create a matrix of betas
+#   ivIntercept = ivBetaRand[dfData$groupIndex]
+#   mBetas = matrix(rep(betas, times=length(ivIntercept)), ncol = length(betas), byrow = T)
+#   mBetas[,1] = ivIntercept
+#   mBetas = t(mBetas)
+#   iFitted = diag(mModMatrix %*% mBetas)
+#   # using log link
+#   # write the likelihood function
+#   val = sum(lf(dfData$resp, exp(iFitted)))
+#   val = val +  dunif(sigmaPop, 0, 1e10, log=T) + sum(dnorm(iGroupsJitter, 0, sigmaRan, log=T)) +
+#     dunif(sigmaRan, 0, 1e3, log=T)
+#   return(val)
+# }
+
+dfData.re = droplevels.data.frame(na.omit(dfData[,c('id', 'age', 'chaomean', 'intervention', 'daysRoomTemp', 'caesarean', 'sibling3m')]))
+dfData.re$groupIndex = as.numeric(dfData.re$id)
+
+# # set starting values
+# 
+# start = c('sigmaPop'=log(5), 'sigmaRan'=log(2), rep(0, times=2))#, rep(0, times=length(unique(dfData.re$groupIndex)))) 
+# 
+# dfData.re$resp = dfData.re$chaomean
+# lData = list('dfData'=dfData.re)
+# 
+# myloglike(start, lData)
+# 
+# op = optim(start, myloglike, control = list(fnscale = -1, maxit=10000), data=lData, method='SANN', hessian=T)
+# start = as.numeric(op$par)
+# names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# h = hessian(myloglike, start, data=lData)
+# # 
+# # start = as.numeric(op$par)
+# # names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# # start
+# # op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, hessian=T)
+# 
+# h = -solve(h)
+# op$var = h
+# fit = op
+# # 
+# # start[3:4] = op$par[3:4]
+# # names(start) = NULL
+# # names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# # fit = mylaplace(myloglike, start, lData)
+# 
+# se = sqrt(abs(diag(fit$var)))
+# m = fit$par
+
+fit.lm = glmer(resp ~ 1+ age + daysRoomTemp+caesarean+sibling3m+ (1 | id), data=dfData.re, family=Gamma(link='log'))
+summary(fit.lm)
+# m[3:4]
+# se[3:4]
+
+myloglike = function(theta, data){
+  ## parameters to track/estimate
+  sigmaPop = exp(theta['sigmaPop'])
+  sigmaRan = exp(theta['sigmaRan'])
+  betas = theta[3:7] # vector of betas i.e. regression coefficients for population
+  iGroupsJitter = theta[-c(1:7)]
+  ## data
+  dfData = data$dfData # predictors and response
+  ## likelihood function
+  lf = function(dat, fitted){
+    alpha = (fitted^2)/sigmaPop
+    beta = fitted/sigmaPop
+    return(log(dgamma(dat, shape = alpha, rate = beta)))
+  }
+  ## random effect jitter for the population intercept
+  ## how many groups
+  #iGroupsCount = unique(dfData$groupIndex)
+  # each group contributes a jitter centered on 0
+  #iGroupsJitter = rnorm(iGroupsCount, 0, sigmaRan)
+  # population slope + random jitter
+  ivBetaRand = betas[1] + iGroupsJitter
+  # create model matrix
+  mModMatrix = model.matrix(resp ~ 1+ age + daysRoomTemp+caesarean+sibling3m, data=dfData)
+  # create a matrix of betas
+  ivIntercept = ivBetaRand[dfData$groupIndex]
+  mBetas = matrix(rep(betas, times=length(ivIntercept)), ncol = length(betas), byrow = T)
+  mBetas[,1] = ivIntercept
+  mBetas = t(mBetas)
+  iFitted = diag(mModMatrix %*% mBetas)
+  # using log link
+  # write the likelihood function
+  val = sum(lf(dfData$resp, exp(iFitted)))
+  val = val +  dunif(sigmaPop, 0, 1e10, log=T) + sum(dnorm(iGroupsJitter, 0, sigmaRan, log=T)) +
+    dunif(sigmaRan, 0, 1e3, log=T)
+  return(val)
+}
+
+# set starting values
+start = c('sigmaPop'=log(5), 'sigmaRan'=log(2), rep(0, times=5), rep(0, times=length(unique(dfData.re$groupIndex)))) 
+
+dfData.re$resp = dfData.re$chaomean
+lData = list('dfData'=dfData.re)
+
+myloglike(start, lData)
+
+op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, method='SANN', hessian=T)
+start = as.numeric(op$par)
+names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+h = hessian(myloglike, start, data=lData)
+# 
+# start = as.numeric(op$par)
+# names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# start
+# op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, hessian=T)
+
+h = -solve(h)
+op$var = h
+fit = op
+# 
+# start[3:4] = op$par[3:4]
+# names(start) = NULL
+# names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# fit = mylaplace(myloglike, start, lData)
+
+se = sqrt(abs(diag(fit$var)))
+m = fit$par
+
+# fit.lm = glmer(chaomean ~ 1+age + (1 | id), data=dfData, family=Gamma(link='log'))
+# summary(fit.lm)
+# m[3:4]
+# se[3:4]
+# m[3:4]/se[3:4]
+
+#start = c('sigmaPop'=log(5), 'sigmaRan'=log(2), rep(0, times=2), rep(0, times=length(unique(dfData.re$groupIndex)))) 
+fit = mylaplace(myloglike, start, lData)
+fit$mode[3:8]
+se = sqrt(abs(diag(fit$var)))
+se[3:8]
+
+############################## try without tracking RE intercepts
+myloglike = function(theta, data){
+  ## parameters to track/estimate
+  sigmaPop = exp(theta['sigmaPop'])
+  sigmaRan = exp(theta['sigmaRan'])
+  betas = theta[3:7] # vector of betas i.e. regression coefficients for population
+  #iGroupsJitter = theta[-c(1:7)]
+  ## data
+  dfData = data$dfData # predictors and response
+  ## likelihood function
+  lf = function(dat, fitted){
+    alpha = (fitted^2)/sigmaPop
+    beta = fitted/sigmaPop
+    return(log(dgamma(dat, shape = alpha, rate = beta)))
+  }
+  ## random effect jitter for the population intercept
+  ## how many groups
+  iGroupsCount = unique(dfData$groupIndex)
+  # each group contributes a jitter centered on 0
+  iGroupsJitter = rnorm(iGroupsCount, 0, sigmaRan)
+  # population slope + random jitter
+  ivBetaRand = betas[1] + iGroupsJitter
+  # create model matrix
+  mModMatrix = model.matrix(resp ~ 1+ age + daysRoomTemp+caesarean+sibling3m, data=dfData)
+  # create a matrix of betas
+  ivIntercept = ivBetaRand[dfData$groupIndex]
+  mBetas = matrix(rep(betas, times=length(ivIntercept)), ncol = length(betas), byrow = T)
+  mBetas[,1] = ivIntercept
+  mBetas = t(mBetas)
+  iFitted = diag(mModMatrix %*% mBetas)
+  # using log link
+  # write the likelihood function
+  val = sum(lf(dfData$resp, exp(iFitted)))
+  val = val +  dunif(sigmaPop, 0, 1e10, log=T) + #sum(dnorm(iGroupsJitter, 0, sigmaRan, log=T)) +
+    dunif(sigmaRan, 0, 1e3, log=T)
+  return(val)
+}
+
+# set starting values
+start = c('sigmaPop'=log(5), 'sigmaRan'=log(2), rep(0, times=5))
+fit.old = fit
+myloglike(start, lData)
+
+op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, method='SANN', hessian=T)
+start = as.numeric(op$par)
+names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+h = hessian(myloglike, start, data=lData)
+# 
+# start = as.numeric(op$par)
+# names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# start
+# op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, hessian=T)
+
+h = -solve(h)
+op$var = h
+
+fit = mylaplace(myloglike, start, lData)
+fit$mode[3:8]
+se = sqrt(abs(diag(fit$var)))
+se[3:8]
+
+se = sqrt(abs(diag(fit$var)))
+m = fit$par
+
+############################# test with stan
+library(rstan)
+stanDso = rstan::stan_model(file='mergedDataSet/glmerRegression.stan')
+
+mModMatrix = model.matrix(resp ~ 1+ age + daysRoomTemp+caesarean+sibling3m, data=dfData.re)
+lStanData = list(Ntotal=nrow(mModMatrix), Nclusters=length(unique(dfData.re$id)), NgroupMap=dfData.re$groupIndex,
+                 Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData.re$resp)
+
+fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=4, pars=c('betas', 'nu', 'sigma'))
+print(fit.stan)
+
+######################################################################
 # #### section with lattice plots
 # dfData.bk = dfData
 # # sort on age for plotting
@@ -326,14 +584,49 @@ anova(fm.mv, test='Chisq')
 #        type=c('p', 'g', 'r'), groups=sterlise)
 
 
-densityplot(~ chaomean | interventiongroup, data=dfData, main='Intervention')
-densityplot(~ chaomean | Caesarean, data=dfData, main='Caesarean')
-densityplot(~ chaomean | sterlise, data=dfData, main='Sterlise')
-densityplot(~ chaomean | rural_q3mgen, data=dfData, main='Rural')
-densityplot(~ chaomean | catOrDog3m, data=dfData, main='Pet')
-densityplot(~ chaomean | NumSiblings3m, data=dfData, main='Siblings')
-densityplot(~ chaomean | OralABmonth, data=dfData, main='Oral AB last month')
+# densityplot(~ chaomean | interventiongroup, data=dfData, main='Intervention')
+# densityplot(~ chaomean | Caesarean, data=dfData, main='Caesarean')
+# densityplot(~ chaomean | sterlise, data=dfData, main='Sterlise')
+# densityplot(~ chaomean | rural_q3mgen, data=dfData, main='Rural')
+# densityplot(~ chaomean | catOrDog3m, data=dfData, main='Pet')
+# densityplot(~ chaomean | NumSiblings3m, data=dfData, main='Siblings')
+# densityplot(~ chaomean | OralABmonth, data=dfData, main='Oral AB last month')
 
 # xyplot(chaomean ~ age | interventiongroup+sterlise+Caesarean, index.cond = function(x,y) coef(lm(y ~ x))[1], aspect='xy',
 #        data=dfData, type=c('g', 'p', 'r'), layout=c(4,2))#, par.strip.text=list(cex=0.4))#, layout=c(12,5))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
