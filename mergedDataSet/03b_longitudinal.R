@@ -315,7 +315,7 @@ mylaplace = function (logpost, mode, data)
 
 dfData.re = droplevels.data.frame(na.omit(dfData[,c('id', 'age', 'chaomean', 'intervention', 'daysRoomTemp', 'caesarean', 'sibling3m')]))
 dfData.re$groupIndex = as.numeric(dfData.re$id)
-
+dfData.re$resp = dfData.re$chaomean
 # # set starting values
 # 
 # start = c('sigmaPop'=log(5), 'sigmaRan'=log(2), rep(0, times=2))#, rep(0, times=length(unique(dfData.re$groupIndex)))) 
@@ -392,32 +392,31 @@ myloglike = function(theta, data){
 # set starting values
 start = c('sigmaPop'=log(5), 'sigmaRan'=log(2), rep(0, times=5), rep(0, times=length(unique(dfData.re$groupIndex)))) 
 
-dfData.re$resp = dfData.re$chaomean
 lData = list('dfData'=dfData.re)
 
 myloglike(start, lData)
 
-op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, method='SANN', hessian=T)
-start = as.numeric(op$par)
-names(start)[1:2] = c('sigmaPop', 'sigmaRan')
-h = hessian(myloglike, start, data=lData)
-# 
+# op = optim(start, myloglike, control = list(fnscale = -1, maxit=10000), data=lData, method='SANN', hessian=T)
 # start = as.numeric(op$par)
 # names(start)[1:2] = c('sigmaPop', 'sigmaRan')
-# start
-# op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, hessian=T)
-
-h = -solve(h)
-op$var = h
-fit = op
+# h = hessian(myloglike, start, data=lData)
+# # 
+# # start = as.numeric(op$par)
+# # names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# # start
+# # op = optim(start, myloglike, control = list(fnscale = -1, maxit=20000), data=lData, hessian=T)
 # 
-# start[3:4] = op$par[3:4]
-# names(start) = NULL
-# names(start)[1:2] = c('sigmaPop', 'sigmaRan')
-# fit = mylaplace(myloglike, start, lData)
-
-se = sqrt(abs(diag(fit$var)))
-m = fit$par
+# h = -solve(h)
+# op$var = h
+# fit = op
+# # 
+# # start[3:4] = op$par[3:4]
+# # names(start) = NULL
+# # names(start)[1:2] = c('sigmaPop', 'sigmaRan')
+# # fit = mylaplace(myloglike, start, lData)
+# 
+# se = sqrt(abs(diag(fit$var)))
+# m = fit$par
 
 # fit.lm = glmer(chaomean ~ 1+age + (1 | id), data=dfData, family=Gamma(link='log'))
 # summary(fit.lm)
@@ -427,9 +426,9 @@ m = fit$par
 
 #start = c('sigmaPop'=log(5), 'sigmaRan'=log(2), rep(0, times=2), rep(0, times=length(unique(dfData.re$groupIndex)))) 
 fit = mylaplace(myloglike, start, lData)
-fit$mode[3:8]
+fit$mode[3:7]
 se = sqrt(abs(diag(fit$var)))
-se[3:8]
+se[3:7]
 
 ############################## try without tracking RE intercepts
 myloglike = function(theta, data){
@@ -503,7 +502,7 @@ mModMatrix = model.matrix(resp ~ 1+ age + daysRoomTemp+caesarean+sibling3m, data
 lStanData = list(Ntotal=nrow(mModMatrix), Nclusters=length(unique(dfData.re$id)), NgroupMap=dfData.re$groupIndex,
                  Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData.re$resp)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=4, pars=c('betas', 'nu', 'sigma'))
+fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=4, pars=c('betas', 'sigmaPop', 'sigmaRan', 'rGroupsJitter'))
 print(fit.stan)
 
 ######################################################################

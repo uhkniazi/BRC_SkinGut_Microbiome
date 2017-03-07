@@ -7,12 +7,6 @@ data {
     real y[Ntotal]; // response variable gamma distributed
 }
 // transformed data {
-//   real unifLo;
-//   real unifHi; // the lower and upper bounds for the t-distrubtion scale
-//   real expLambda; // rate parameter for the exponential distribution for nu
-//   unifLo = sdY/1000;
-//   unifHi = sdY*1000;
-//   expLambda = 1/29.0 ;
 // }
 parameters {
   // parameters to estimate in the model
@@ -20,23 +14,26 @@ parameters {
     //real betaRandom; // random intercept
     real<lower=0> sigmaPop; // population standard deviation
     real<lower=0> sigmaRan; // random effect standard deviation
+    vector[Nclusters] rGroupsJitter; // number of random jitters for each cluster member
 }
 transformed parameters {
   vector[Ntotal] mu; // fitted values from linear predictor
-  vector[Nclusters] rGroupsJitter; // number of random jitters for each cluster member
   matrix[Ntotal, Ntotal] muMat; 
   vector[Ntotal] alpha;// shape parameter
   vector[Ntotal] beta;// rate parameter
-  // add this random jitter to the population intercept
-  vector[Nclusters] rBetaRand = rGroupsJitter + betas[1];
-  # convert these betas to a matrix form
-  vector[Ntotal] rNewIntercept = rBetaRand[NgroupMap];
+  vector[Ntotal] rNewIntercept;
   matrix[Ntotal, Ncol] mBetas;
+  // add this random jitter to the population intercept
+  vector[Nclusters] rBetaRand;
+  rBetaRand = rGroupsJitter + betas[1];
+  // new intercept variable equal to number of observations
+  rNewIntercept = rBetaRand[NgroupMap];
   // fill this matrix
-  for (i in 1:Ntotal) mBetas[i,] = betas;
+  for (r in 1:Ntotal) mBetas[r] = betas;
+  // replace first column i.e. original intercept with group
+  // intercept
   mBetas[,1] = rNewIntercept;
-  mBetas = (mBetas)'; // transpose the matrix
-  muMat = X * mBetas; 
+  muMat = X * (mBetas)'; 
   # get the diagonal of this matrix
   for(i in 1:Ntotal) mu[i] = muMat[i,i];
   mu = exp(mu);
@@ -46,8 +43,8 @@ transformed parameters {
 }
 model {
   // using non-informative priors to start with
-  sigmaPop ~ uniform(0, 1e10);
-  sigmaRan ~ uniform(0, 1e3);
+  //sigmaPop ~ uniform(0, 1e10);
+  //sigmaRan ~ uniform(0, 1e3);
   // random effects sample
   rGroupsJitter ~ normal(0, sigmaRan);
   
