@@ -233,13 +233,14 @@ fm04 = lmerTest::lmer(shannonmean ~ 1 + age + intervention +
 ## diet variables are correlated with age and including them makes 
 ## coefficients unstable
 summary(lmerTest::lmer(shannonmean ~ 1 + age + intervention + 
-                        daysRoomTemp + caesarean + sibling3m + frozen +abxMonth +
+                        daysRoomTemp + caesarean + sibling3m + frozen +abxMonth + sterilise +
                         (1 + age | id), data=dfData))
 
 fm.mv = lmerTest::lmer(shannonmean ~ 1 + age + intervention + 
-                         daysRoomTemp + caesarean + sibling3m + frozen +abxMonth +
+                         caesarean + sibling3m + sterilise + abxMonth + daysRoomTemp + frozen +
                          (1 + age | id), data=dfData)
 
+summary(fm.mv)
 Anova(fm.mv)
 anova(fm.mv, test='Chisq')
 
