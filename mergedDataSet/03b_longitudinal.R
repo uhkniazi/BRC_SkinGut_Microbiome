@@ -347,7 +347,7 @@ dfData.re$resp = dfData.re$chaomean
 # se = sqrt(abs(diag(fit$var)))
 # m = fit$par
 
-fit.lm = glmer(resp ~ 1+ age + daysRoomTemp+caesarean+sibling3m+ (1 | id), data=dfData.re, family=Gamma(link='log'))
+fit.lm = glmer(resp ~ 1+ age + intervention + daysRoomTemp+caesarean+sibling3m+ (1 | id), data=dfData.re, family=Gamma(link='log'))
 summary(fit.lm)
 # m[3:4]
 # se[3:4]
@@ -384,8 +384,9 @@ myloglike = function(theta, data){
   # using log link
   # write the likelihood function
   val = sum(lf(dfData$resp, exp(iFitted)))
-  val = val +  dunif(sigmaPop, 0, 1e10, log=T) + sum(dnorm(iGroupsJitter, 0, sigmaRan, log=T)) +
-    dunif(sigmaRan, 0, 1e3, log=T)
+  val = val +  dunif(sigmaPop, 0, 1e10, log=T) + sum(dnorm(iGroupsJitter, 0, sigmaRan, log=T)) + 
+    sum(dcauchy(betas, 0, 10, log=T)) +
+    dunif(sigmaRan, 0, 1e3, log=T) 
   return(val)
 }
 
@@ -487,9 +488,9 @@ h = -solve(h)
 op$var = h
 
 fit = mylaplace(myloglike, start, lData)
-fit$mode[3:8]
+fit$mode[3:7]
 se = sqrt(abs(diag(fit$var)))
-se[3:8]
+se[3:7]
 
 se = sqrt(abs(diag(fit$var)))
 m = fit$par
@@ -502,8 +503,10 @@ mModMatrix = model.matrix(resp ~ 1+ age + daysRoomTemp+caesarean+sibling3m, data
 lStanData = list(Ntotal=nrow(mModMatrix), Nclusters=length(unique(dfData.re$id)), NgroupMap=dfData.re$groupIndex,
                  Ncol=ncol(mModMatrix), X=mModMatrix, y=dfData.re$resp)
 
-fit.stan = sampling(stanDso, data=lStanData, iter=10000, chains=4, pars=c('betas', 'sigmaPop', 'sigmaRan', 'rGroupsJitter'))
+fit.stan = sampling(stanDso, data=lStanData, iter=1000, chains=4, pars=c('betas', 'sigmaPop', 'sigmaRan'))
 print(fit.stan)
+
+extract()
 
 ######################################################################
 # #### section with lattice plots
