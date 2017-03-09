@@ -261,7 +261,7 @@ dfMultivariate = data.frame(PValue=round(df$Pr..F., 3))
 rownames(dfMultivariate) = rownames(df)
 write.csv(dfMultivariate, file='mergedDataSet/Temp/multivariate_submodel.csv')
 ## subset model further 
-fm01.b = lm(Shannon ~ eczema12m + iga + caesarean + numSiblings3m + abxMonth + calp + bdef + 
+fm01.b = lm(Shannon ~ eczema12m + iga + caesarean + numSiblings3m + abxMonth + calp + bdef + dietDiversityAtSample+ 
               weight12m  , data=dfData)
 
 summary(fm01.b)
