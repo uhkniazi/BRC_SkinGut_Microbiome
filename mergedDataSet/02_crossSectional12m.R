@@ -242,7 +242,7 @@ anova(fm01, test='Chisq')
 # rownames(dfMultivariate) = rownames(df)
 # write.csv(dfMultivariate, file='mergedDataSet/Temp/multivariate.csv')
 
-cvRemove = c('daysRoomTemp', 'catsCount3m', 'FlgMutation', 'dogsCount3m ', 
+cvRemove = c('catsCount3m', 'FlgMutation', 'dogsCount3m ', 
              'Ige12m0.35')
 ## keep only the interesting covariates based on univariate and multivariate results
 i = names(ivScore) %in% cvRemove
@@ -261,7 +261,7 @@ dfMultivariate = data.frame(PValue=round(df$Pr..F., 3))
 rownames(dfMultivariate) = rownames(df)
 write.csv(dfMultivariate, file='mergedDataSet/Temp/multivariate_submodel.csv')
 ## subset model further 
-fm01.b = lm(Shannon ~ eczema12m + iga + caesarean + numSiblings3m + abxMonth +
+fm01.b = lm(Shannon ~ eczema12m + iga + caesarean + numSiblings3m + abxMonth + calp + bdef + 
               weight12m  , data=dfData)
 
 summary(fm01.b)
