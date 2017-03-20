@@ -38,21 +38,17 @@ library(LearnBayes)
 library(MASS)
 library(numDeriv)
 mylogpost = function(theta, data){
-  nu = exp(theta['nu']) ## normality parameter for t distribution
-  sigma = exp(theta['sigma']) # scale parameter for t distribution
+  sigma = exp(theta['sigma']) # scale parameter for normal distribution
   # hyperparameter for the hierarchichal standard deviation parameter
   betaSigma = exp(theta['betaSigma'])
-  betas = theta[-c(1:3)] # vector of betas i.e. regression coefficients
+  betas = theta[-c(1:2)] # vector of betas i.e. regression coefficients
   dfData = data$dfData # predictors and response 
   # hyper-hyperparameters for the hierarchichal standard deviation parameter
   ivBetaParam = data$betaParam
   
-  # function to use to use scale parameter
-  ## see here https://grollchristian.wordpress.com/2013/04/30/students-t-location-scale/
-  dt_ls = function(x, df, mu, a) 1/a * dt((x - mu)/a, df)
   ## likelihood function
   lf = function(dat, pred){
-    return(log(dt_ls(dat, nu, pred, sigma)))
+    return(log(dnorm(dat, pred, sigma)))
   }
   # the predicted value
   mModMatrix = model.matrix(resp ~ ., data=dfData)
@@ -60,7 +56,7 @@ mylogpost = function(theta, data){
   # likelihood function
   val = sum(lf(dfData$resp, mu))
   # add the priors
-  val = val + dexp(nu, 1/29, log = T) + dunif(sigma, 0.1, 1e+4, log = T) +
+  val = val  + dunif(sigma, 0.1, 1e+4, log = T) +
     dnorm(betas[1], 0, 1e2, log=T) + 
     sum(dnorm(betas[2:length(betas)], 0, betaSigma, log=T)) + 
     dgamma(betaSigma, shape = ivBetaParam['shape'], rate = ivBetaParam['rate'], log=T)
@@ -86,15 +82,26 @@ mylaplace = function (logpost, mode, data)
 
 
 #### initial values
-fitdistr(dfData$resp, densfun = 't')
 ivBetas = coef(lm(resp ~ . , data=dfData))
 
-start = c('nu'=log(3), 'sigma'=log(0.5), 'betaSigma'=log(sd(dfData$resp)), 'betas'=ivBetas)
+start = c('sigma'=log(sd(dfData$resp)), 'betaSigma'=log(sd(dfData$resp)), 'betas'=ivBetas)
 lData = list('dfData'=dfData)
 lData$betaParam = c('shape'=0.5, 'rate'=0.0001)
 
 fit = laplace(mylogpost, start, lData)
 fit2 = mylaplace(mylogpost, start, lData)
+fit3 = (lm(resp ~ . , data=dfData))
+
+getOptimizedSummary = function(obj){
+  se = sqrt(abs(diag(obj$var)))
+  m = obj$mode
+  p = pnorm(-abs(m/se))*2
+  ret  = cbind('Coef' = round(m, 3), 'SE'=round(se, 3), 'P-Value'=signif(p, 3))
+  colnames(ret) = c('Coef', 'SE', 'P-Value')
+  return(ret)
+}
+
+
 
 
 
