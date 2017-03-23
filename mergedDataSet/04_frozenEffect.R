@@ -25,11 +25,13 @@ str(dfImport)
 summary(dfImport)
 
 ### covariates of interest for analysis 
-dfData = data.frame(resp=dfImport$shannonmean, #frozen=dfImport$frozen, 
+dfData = data.frame(resp=dfImport$shannonmean, frozen=dfImport$frozen, 
                     abxMonth=ifelse(dfImport$abxMonth == 0, 'No', 'Yes'),
                     dogOrCat3m=dfImport$dogOrCat3m,
                     eczema=dfImport$eczema3m,
-                    diarrhoea=dfImport$diarrhoea3m)
+                    diarrhoea=dfImport$diarrhoea3m,
+                    siblings=dfImport$sibling3m,
+                    caes = dfImport$caesarean)
 
 dfData = na.omit(dfData)
 
@@ -40,12 +42,12 @@ library(MASS)
 library(numDeriv)
 mylogpost = function(theta, data){
   sigma = exp(theta['sigma']) # scale parameter for normal distribution
-  # hyperparameter for the hierarchichal standard deviation parameter
-  betaSigma = 1; #exp(theta['betaSigma'])
-  betas = theta[-c(1)] # vector of betas i.e. regression coefficients
+  # hyperparameter for the hierarchichal standard deviation parameter of regression coefficients
+  betaSigma = exp(theta['betaSigma'])
+  betas = theta[-c(1:2)] # vector of betas i.e. regression coefficients
   dfData = data$dfData # predictors and response 
   # hyper-hyperparameters for the hierarchichal standard deviation parameter
-  #ivBetaParam = data$betaParam
+  ivBetaParam = data$betaParam
   
   ## likelihood function
   lf = function(dat, pred){
@@ -58,7 +60,8 @@ mylogpost = function(theta, data){
   val = sum(lf(dfData$resp, mu))
   # add the priors
   val = val  + dunif(sigma, 0.1, 1e+4, log = T) +
-    sum(dcauchy(betas, 0, betaSigma, log = T))
+    sum(dcauchy(betas, 0, betaSigma, log = T)) + 
+    dgamma(betaSigma, shape = ivBetaParam['shape'], rate = ivBetaParam['rate'], log=T)
     # dcauchy(betas[1], 0, 1e2, log=T) + 
     # sum(dcauchy(betas[2:length(betas)], 0, betaSigma, log=T)) + 
     # dgamma(betaSigma, shape = ivBetaParam['shape'], rate = ivBetaParam['rate'], log=T)
@@ -82,19 +85,6 @@ mylaplace = function (logpost, mode, data)
   return(stuff)
 }
 
-
-#### initial values
-ivBetas = coef(lm(resp ~ . , data=dfData))
-
-#start = c('sigma'=log(sd(dfData$resp)), 'betaSigma'=log(sd(dfData$resp)), 'betas'=ivBetas)
-start = c('sigma'=log(sd(dfData$resp)), 'betas'=ivBetas)
-lData = list('dfData'=dfData)
-#lData$betaParam = c('shape'=0.5, 'rate'=0.0001)
-
-#fit = laplace(mylogpost, start, lData)
-fit2 = mylaplace(mylogpost, start, lData)
-fit3 = (lm(resp ~ . , data=dfData))
-
 getOptimizedSummary = function(obj){
   se = sqrt(abs(diag(obj$var)))
   m = obj$mode
@@ -105,45 +95,105 @@ getOptimizedSummary = function(obj){
   return(ret)
 }
 
-mFrozenNo = round(getOptimizedSummary(fit2), 3)
-summary(fit3)
-#####################################################################
-## with frozen
-dfData = data.frame(resp=dfImport$shannonmean, frozen=ifelse(dfImport$frozen=='Yes', 1, 0), 
-                    abxMonth=ifelse(dfImport$abxMonth == 0, 'No', 'Yes'),
-                    dogOrCat3m=dfImport$dogOrCat3m,
-                    eczema=dfImport$eczema3m,
-                    diarrhoea=dfImport$diarrhoea3m)
 
-dfData = na.omit(dfData)
-## initial values
-ivBetas = coef(lm(resp ~ . , data=dfData))
-start = c('sigma'=log(sd(dfData$resp)), 'betas'=ivBetas)
-lData = list('dfData'=dfData)
+fit.model = function(dfData){
+  #### initial values for the optimizer
+  ivBetas = coef(lm(resp ~ . , data=dfData))
+  start = c('sigma'=log(sd(dfData$resp)), 'betaSigma'=log(sd(dfData$resp)), 'betas'=ivBetas)
+  # parameters and data
+  lData = list('dfData'=dfData)
+  # jeffery's prior for gamma distribution, hyper-prior distribution for scale of coefficients
+  lData$betaParam = c('shape'=0.5, 'rate'=0.0001)
+  fit = laplace(mylogpost, start, lData)
+  return(getOptimizedSummary(fit))
+}
 
-fit2.frozen = mylaplace(mylogpost, start, lData)
-mFrozenYes = round(getOptimizedSummary(fit2.frozen), 3)
+########### subset the data based on frozen and fresh
+dfFresh = dfData[dfData$frozen == 'No',]
+dfFrozen = dfData[dfData$frozen == 'Yes',]
+dim(dfFresh); dim(dfFrozen)
 
-# 
-# ## make some plots of interest
-# 
-# library(lattice)
-# 
-# xyplot(ifelse(dfData$eczema3m == "Yes", 1, 0) ~ Shannon | frozen, data = dfData,
-#        type = c("p", "smooth"),
-#        ylab = "Eczema at 3 months", xlab = "Shannon Diversity", main='Eczema at 3m vs Diversity given Frozen')
-# 
-# xyplot(ifelse(dfData$eczema3m == "Yes", 1, 0) ~ Shannon, data = dfData,
-#        type = c("p"),
-#        ylab = "Eczema at 3 months", xlab = "Shannon Diversity", main='Eczema at 3m vs Diversity')
-# 
-# xyplot(ifelse(dfData$eczema3m == "Yes", 1, 0) ~ Shannon | frozen, data = dfData,
-#        type = c("p"),
-#        ylab = "Eczema at 3 months", xlab = "Shannon Diversity", main='Eczema at 3m vs Diversity given Frozen')
-# 
-# xyplot(Shannon ~ abxMonth, data=dfData, index.cond = function(x,y) coef(lm(y ~ x))[1], auto.key=T,
-#        type=c('p', 'g', 'r'), groups=eczema3m)
-# 
-# xyplot(Shannon ~ eczema3m+ifelse(abxMonth == 'Yes', 'AB Yes', 'AB No') | ifelse(frozen == 'Yes', 'Frozen', 'Not Frozen'), data=dfData, xlab='Antibiotic Yes/No, Eczema No Yes',
-#        main='Affect on Shannon Diversity of Eczema status and Antibiotics')
+#### check each covariate with fresh and frozen samples
+colnames(dfData)
+
+fit.model.split = function(dfData){
+  mFresh = fit.model(dfData[dfData$frozen == 'No',c(1,3)])
+  mFrozen = fit.model(dfData[dfData$frozen == 'Yes',c(1,3)])
+  return(list('fresh' = mFresh, 'frozen'=mFrozen))
+}
+
+labx = fit.model.split(dfData[,c(1, 2, 3)])
+lpet = fit.model.split(dfData[,c(1, 2, 4)])
+leczema = fit.model.split(dfData[,c(1, 2, 5)])
+ldia = fit.model.split(dfData[,c(1, 2, 6)])
+
+summary(lm(resp ~ diarrhoea, data=dfData[dfData$frozen == 'Yes',]))
+
+#########################################################################################
+####### redefine logposterior function and use a constant hyperparameter
+mylogpost = function(theta, data){
+  sigma = exp(theta['sigma']) # scale parameter for normal distribution
+  # hyperparameter for the hierarchichal standard deviation parameter of regression coefficients
+  betaSigma = 10#exp(theta['betaSigma'])
+  betas = theta[-c(1)] # vector of betas i.e. regression coefficients
+  dfData = data$dfData # predictors and response 
+  # hyper-hyperparameters for the hierarchichal standard deviation parameter
+  #ivBetaParam = data$betaParam
+  
+  ## likelihood function
+  lf = function(dat, pred){
+    return(log(dnorm(dat, pred, sigma)))
+  }
+  # the predicted value
+  mModMatrix = model.matrix(resp ~ ., data=dfData)
+  mu = mModMatrix %*% betas ## link is identity
+  # likelihood function
+  val = sum(lf(dfData$resp, mu))
+  # add the priors
+  val = val  + dunif(sigma, 0.1, 1e+4, log = T) +
+    sum(dcauchy(betas, 0, betaSigma, log = T))  
+    #dgamma(betaSigma, shape = ivBetaParam['shape'], rate = ivBetaParam['rate'], log=T)
+  # dcauchy(betas[1], 0, 1e2, log=T) + 
+  # sum(dcauchy(betas[2:length(betas)], 0, betaSigma, log=T)) + 
+  # dgamma(betaSigma, shape = ivBetaParam['shape'], rate = ivBetaParam['rate'], log=T)
+  return(val)
+}
+
+fit.model = function(dfData){
+  #### initial values for the optimizer
+  ivBetas = coef(lm(resp ~ . , data=dfData))
+  start = c('sigma'=log(sd(dfData$resp)), 'betas'=ivBetas)
+  # parameters and data
+  lData = list('dfData'=dfData)
+  fit = mylaplace(mylogpost, start, lData)
+  return(getOptimizedSummary(fit))
+}
+
+fit.model.split = function(dfData){
+  mFresh = fit.model(dfData[dfData$frozen == 'No',c(1,3)])
+  print(summary(lm(resp ~ ., data=dfData[dfData$frozen == 'No',c(1,3)])))
+  ## select equal sizes for frozen
+  df = dfData[dfData$frozen == 'Yes',c(1,3)]
+  df = df[sample(1:182, size = 81, replace = F),]
+  print(summary(lm(resp ~ ., data=df)))
+  mFrozen = fit.model(df)
+  return(list('fresh' = mFresh, 'frozen'=mFrozen))
+}
+
+
+
+labx = fit.model.split(dfData[,c(1, 2, 3)])
+lpet = fit.model.split(dfData[,c(1, 2, 4)])
+leczema = fit.model.split(dfData[,c(1, 2, 5)])
+ldia = fit.model.split(dfData[,c(1, 2, 6)])
+lsib = fit.model.split(dfData[,c(1, 2, 7)])
+lcae = fit.model.split(dfData[,c(1, 2, 8)])
+
+dfFresh = data.frame(rbind(labx$fresh[3,], lpet$fresh[3,], leczema$fresh[3,], ldia$fresh[3,], lsib$fresh[3,], lcae$fresh[3,]))
+dfFrozen = data.frame(rbind(labx$frozen[3,], lpet$frozen[3,], leczema$frozen[3,], ldia$frozen[3,], lsib$frozen[3,], lcae$frozen[3,]))
+rownames(dfFresh) = c('antibiotics', 'pets', 'eczema', 'diahorrea', 'siblings', 'caesarean')
+rownames(dfFrozen) = c('antibiotics', 'pets', 'eczema', 'diahorrea', 'siblings', 'caesarean')
+
+dfFresh[order(dfFresh$ES),]
+dfFrozen[order(dfFrozen$ES),]
 
